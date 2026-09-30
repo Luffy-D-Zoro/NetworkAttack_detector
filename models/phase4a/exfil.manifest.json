@@ -1,0 +1,71 @@
+{
+  "algorithm": "sklearn.ensemble.RandomForestClassifier",
+  "class_distribution": {
+    "benign_like": 48,
+    "exfil_like": 48
+  },
+  "classes": [
+    "benign_like",
+    "exfil_like"
+  ],
+  "expanded_feature_names": [
+    "bytes_per_second",
+    "bytes_per_second__available",
+    "packets_per_second",
+    "packets_per_second__available",
+    "total_recent_bytes",
+    "total_recent_bytes__available",
+    "total_recent_packets",
+    "total_recent_packets__available",
+    "active_bucket_count",
+    "active_bucket_count__available",
+    "active_time_fraction",
+    "active_time_fraction__available",
+    "sustained_transfer_duration_seconds",
+    "sustained_transfer_duration_seconds__available",
+    "byte_rate_variance",
+    "byte_rate_variance__available",
+    "byte_rate_burstiness",
+    "byte_rate_burstiness__available",
+    "reverse_observed",
+    "reverse_observed__available",
+    "forward_to_reverse_byte_ratio",
+    "forward_to_reverse_byte_ratio__available",
+    "forward_to_reverse_packet_ratio",
+    "forward_to_reverse_packet_ratio__available"
+  ],
+  "family": "exfil",
+  "feature_object": "ExfilFeatures",
+  "missing_value_strategy": "value_zero_plus_explicit_availability_bit",
+  "model_name": "exfil_random_forest",
+  "model_version": "phase4a-prototype-v1",
+  "prototype_data": true,
+  "raw_feature_names": [
+    "bytes_per_second",
+    "packets_per_second",
+    "total_recent_bytes",
+    "total_recent_packets",
+    "active_bucket_count",
+    "active_time_fraction",
+    "sustained_transfer_duration_seconds",
+    "byte_rate_variance",
+    "byte_rate_burstiness",
+    "reverse_observed",
+    "forward_to_reverse_byte_ratio",
+    "forward_to_reverse_packet_ratio"
+  ],
+  "schema_sha256": "7e71878708140ee78ef276d5c08e1cf83ca1a6638fe64734b4227016cf397bd3",
+  "schema_version": 1,
+  "train_samples": 72,
+  "training_configuration": {
+    "class_weight": "balanced",
+    "max_depth": 8,
+    "min_samples_leaf": 2,
+    "n_estimators": 120,
+    "n_jobs": 1,
+    "random_state": 2404,
+    "validation_fraction": 0.25
+  },
+  "training_seed": 2404,
+  "validation_samples": 24
+}

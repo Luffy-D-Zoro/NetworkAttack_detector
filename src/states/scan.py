@@ -78,6 +78,11 @@ class ScanStateManager:
     def get(self, src_ip: IPAddress) -> ScanState | None:
         return self._states.get(src_ip)
 
+    def items(self) -> tuple[tuple[IPAddress, ScanState], ...]:
+        """Return a stable read-only snapshot for periodic feature extraction."""
+
+        return self._states.items()
+
     def update_connection(self, event: DirectionalConnectionEvent) -> bool:
         if event.kind != "start" or event.direction_role != "originator":
             return False

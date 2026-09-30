@@ -17,6 +17,9 @@ from typing import Any, TextIO
 SCHEMA_VERSION = 1
 FLOW_SNAPSHOT_EVENT = "FlowStream::flow_snapshot"
 TCP_SIGNAL_EVENT = "FlowStream::tcp_connection_signal"
+DNS_QUERY_EVENT = "FlowStream::dns_query_observation"
+DNS_RESULT_EVENT = "FlowStream::dns_result_observation"
+ENCRYPTED_PROTOCOL_EVENT = "FlowStream::encrypted_protocol_observation"
 # Phase 1 callers imported this name directly.
 EVENT_NAME = FLOW_SNAPSHOT_EVENT
 DEFAULT_HOST = "127.0.0.1"
@@ -28,6 +31,8 @@ VALID_TCP_SIGNAL_KINDS = frozenset(
     {"syn_start", "established", "attempt_timeout", "rejected", "reset"}
 )
 VALID_ACTOR_ROLES = frozenset({"orig", "resp", "unknown"})
+VALID_ENCRYPTED_KINDS = frozenset({"identified", "metadata"})
+VALID_SECURITY_FAMILIES = frozenset({"tls", "dtls", "quic"})
 MAX_COUNT = (1 << 64) - 1
 
 IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
@@ -96,7 +101,99 @@ class TcpConnectionSignal:
         return result
 
 
-StreamEvent = FlowSnapshot | TcpConnectionSignal
+@dataclass(frozen=True, slots=True)
+class DNSQueryObservation:
+    """One DNS query delivered immediately by Zeek."""
+
+    schema_version: int
+    event_time: datetime
+    zeek_uid: str
+    source_ip: IPAddress
+    source_port: int
+    resolver_ip: IPAddress
+    resolver_port: int
+    ip_protocol: int
+    transaction_id: int
+    query: str
+    qtype: int
+    qclass: int
+
+    def to_dict(self) -> dict[str, object]:
+        result = asdict(self)
+        result["event_time"] = _format_timestamp(self.event_time)
+        result["source_ip"] = str(self.source_ip)
+        result["resolver_ip"] = str(self.resolver_ip)
+        return result
+
+
+@dataclass(frozen=True, slots=True)
+class DNSResultObservation:
+    """One finalized DNS transaction outcome delivered by Zeek."""
+
+    schema_version: int
+    query_time: datetime
+    result_time: datetime
+    zeek_uid: str
+    source_ip: IPAddress
+    resolver_ip: IPAddress
+    ip_protocol: int
+    transaction_id: int
+    query: str | None
+    saw_reply: bool
+    rejected: bool
+    rcode: int | None
+    rtt: float | None
+    answer_count: int | None
+
+    def to_dict(self) -> dict[str, object]:
+        result = asdict(self)
+        result["query_time"] = _format_timestamp(self.query_time)
+        result["result_time"] = _format_timestamp(self.result_time)
+        result["source_ip"] = str(self.source_ip)
+        result["resolver_ip"] = str(self.resolver_ip)
+        return result
+
+
+@dataclass(frozen=True, slots=True)
+class EncryptedProtocolObservation:
+    """TLS, DTLS, or QUIC identification/metadata without payload data."""
+
+    schema_version: int
+    kind: str
+    event_time: datetime
+    zeek_uid: str
+    security_family: str
+    client_ip: IPAddress
+    client_port: int
+    server_ip: IPAddress
+    server_port: int
+    ip_protocol: int
+    version: str | None
+    cipher: str | None
+    curve: str | None
+    server_name: str | None
+    alpn: str | None
+    resumed: bool | None
+    established: bool | None
+    last_alert: str | None
+    server_cert_fingerprint: str | None
+    client_fingerprint: str | None
+
+    def to_dict(self) -> dict[str, object]:
+        result = asdict(self)
+        result["event_time"] = _format_timestamp(self.event_time)
+        result["client_ip"] = str(self.client_ip)
+        result["server_ip"] = str(self.server_ip)
+        return result
+
+
+StreamEvent = (
+    FlowSnapshot
+    | TcpConnectionSignal
+    | DNSQueryObservation
+    | DNSResultObservation
+    | EncryptedProtocolObservation
+)
 
 
 def _format_timestamp(value: datetime) -> str:
@@ -162,6 +259,51 @@ def _string(value: object, path: str) -> str:
     if not isinstance(result, str):
         raise SnapshotValidationError(f"{path}.data must be a string")
     return result
+
+
+def _boolean(value: object, path: str) -> bool:
+    result = _typed(value, "boolean", path)
+    if not isinstance(result, bool):
+        raise SnapshotValidationError(f"{path}.data must be a boolean")
+    return result
+
+
+def _real(value: object, path: str) -> float:
+    result = _typed(value, "real", path)
+    if isinstance(result, bool) or not isinstance(result, (int, float)):
+        raise SnapshotValidationError(f"{path}.data must be a finite number")
+    result = float(result)
+    if not (-float("inf") < result < float("inf")):
+        raise SnapshotValidationError(f"{path}.data must be a finite number")
+    return result
+
+
+def _optional_string(args: list[Any], index: int, name: str) -> str | None:
+    present = _boolean(args[index], f"args[{index}] ({name}.present)")
+    value = _string(args[index + 1], f"args[{index + 1}] ({name}.value)")
+    if not present:
+        return None
+    if not value:
+        raise SnapshotValidationError(f"present optional {name} must not be empty")
+    return value
+
+
+def _optional_count(args: list[Any], index: int, name: str) -> int | None:
+    present = _boolean(args[index], f"args[{index}] ({name}.present)")
+    value = _count(args[index + 1], f"args[{index + 1}] ({name}.value)")
+    return value if present else None
+
+
+def _optional_real(args: list[Any], index: int, name: str) -> float | None:
+    present = _boolean(args[index], f"args[{index}] ({name}.present)")
+    value = _real(args[index + 1], f"args[{index + 1}] ({name}.value)")
+    return value if present else None
+
+
+def _optional_boolean(args: list[Any], index: int, name: str) -> bool | None:
+    present = _boolean(args[index], f"args[{index}] ({name}.present)")
+    value = _boolean(args[index + 1], f"args[{index + 1}] ({name}.value)")
+    return value if present else None
 
 
 def _timestamp(value: object, path: str) -> datetime:
@@ -333,6 +475,110 @@ def _decode_tcp_connection_signal(args: list[Any]) -> TcpConnectionSignal:
     return signal
 
 
+def _schema(args: list[Any], label: str) -> int:
+    schema_version = _count(args[0], "args[0]")
+    if schema_version != SCHEMA_VERSION:
+        raise SnapshotValidationError(f"unsupported {label} schema {schema_version}")
+    return schema_version
+
+
+def _decode_dns_query(args: list[Any]) -> DNSQueryObservation:
+    if len(args) != 12:
+        raise SnapshotValidationError("dns_query_observation must contain exactly 12 arguments")
+    observation = DNSQueryObservation(
+        schema_version=_schema(args, "DNS query"),
+        event_time=_timestamp(args[1], "args[1]"),
+        zeek_uid=_string(args[2], "args[2]"),
+        source_ip=_address(args[3], "args[3]"),
+        source_port=_count(args[4], "args[4]", 65535),
+        resolver_ip=_address(args[5], "args[5]"),
+        resolver_port=_count(args[6], "args[6]", 65535),
+        ip_protocol=_count(args[7], "args[7]", 65535),
+        transaction_id=_count(args[8], "args[8]", 65535),
+        query=_string(args[9], "args[9]"),
+        qtype=_count(args[10], "args[10]", 65535),
+        qclass=_count(args[11], "args[11]", 65535),
+    )
+    if not observation.zeek_uid:
+        raise SnapshotValidationError("DNS query UID must not be empty")
+    if observation.ip_protocol not in {6, 17}:
+        raise SnapshotValidationError("DNS query ip_protocol must be TCP or UDP")
+    return observation
+
+
+def _decode_dns_result(args: list[Any]) -> DNSResultObservation:
+    if len(args) != 18:
+        raise SnapshotValidationError("dns_result_observation must contain exactly 18 arguments")
+    observation = DNSResultObservation(
+        schema_version=_schema(args, "DNS result"),
+        query_time=_timestamp(args[1], "args[1]"),
+        result_time=_timestamp(args[2], "args[2]"),
+        zeek_uid=_string(args[3], "args[3]"),
+        source_ip=_address(args[4], "args[4]"),
+        resolver_ip=_address(args[5], "args[5]"),
+        ip_protocol=_count(args[6], "args[6]", 65535),
+        transaction_id=_count(args[7], "args[7]", 65535),
+        query=_optional_string(args, 8, "query"),
+        saw_reply=_boolean(args[10], "args[10]"),
+        rejected=_boolean(args[11], "args[11]"),
+        rcode=_optional_count(args, 12, "rcode"),
+        rtt=_optional_real(args, 14, "rtt"),
+        answer_count=_optional_count(args, 16, "answer_count"),
+    )
+    if not observation.zeek_uid:
+        raise SnapshotValidationError("DNS result UID must not be empty")
+    if observation.ip_protocol not in {6, 17}:
+        raise SnapshotValidationError("DNS result ip_protocol must be TCP or UDP")
+    if observation.result_time < observation.query_time:
+        raise SnapshotValidationError("DNS result_time must not precede query_time")
+    if observation.rtt is not None and observation.rtt < 0:
+        raise SnapshotValidationError("DNS RTT must not be negative")
+    return observation
+
+
+def _decode_encrypted_protocol(args: list[Any]) -> EncryptedProtocolObservation:
+    if len(args) != 30:
+        raise SnapshotValidationError(
+            "encrypted_protocol_observation must contain exactly 30 arguments"
+        )
+    kind = _string(args[1], "args[1]")
+    family = _string(args[4], "args[4]")
+    if kind not in VALID_ENCRYPTED_KINDS:
+        raise SnapshotValidationError(f"invalid encrypted observation kind {kind!r}")
+    if family not in VALID_SECURITY_FAMILIES:
+        raise SnapshotValidationError(f"invalid security family {family!r}")
+    observation = EncryptedProtocolObservation(
+        schema_version=_schema(args, "encrypted protocol"),
+        kind=kind,
+        event_time=_timestamp(args[2], "args[2]"),
+        zeek_uid=_string(args[3], "args[3]"),
+        security_family=family,
+        client_ip=_address(args[5], "args[5]"),
+        client_port=_count(args[6], "args[6]", 65535),
+        server_ip=_address(args[7], "args[7]"),
+        server_port=_count(args[8], "args[8]", 65535),
+        ip_protocol=_count(args[9], "args[9]", 65535),
+        version=_optional_string(args, 10, "version"),
+        cipher=_optional_string(args, 12, "cipher"),
+        curve=_optional_string(args, 14, "curve"),
+        server_name=_optional_string(args, 16, "server_name"),
+        alpn=_optional_string(args, 18, "alpn"),
+        resumed=_optional_boolean(args, 20, "resumed"),
+        established=_optional_boolean(args, 22, "established"),
+        last_alert=_optional_string(args, 24, "last_alert"),
+        server_cert_fingerprint=_optional_string(args, 26, "server_cert_fingerprint"),
+        client_fingerprint=_optional_string(args, 28, "client_fingerprint"),
+    )
+    if not observation.zeek_uid:
+        raise SnapshotValidationError("encrypted observation UID must not be empty")
+    expected_protocol = 17 if family in {"dtls", "quic"} else 6
+    if observation.ip_protocol != expected_protocol:
+        raise SnapshotValidationError(
+            f"{family} observation must use IP protocol {expected_protocol}"
+        )
+    return observation
+
+
 def decode_stream_event(
     raw: str | bytes, expected_topic: str = DEFAULT_TOPIC
 ) -> StreamEvent:
@@ -345,6 +591,12 @@ def decode_stream_event(
         return _decode_flow_snapshot_args(args)
     if event_name == TCP_SIGNAL_EVENT:
         return _decode_tcp_connection_signal(args)
+    if event_name == DNS_QUERY_EVENT:
+        return _decode_dns_query(args)
+    if event_name == DNS_RESULT_EVENT:
+        return _decode_dns_result(args)
+    if event_name == ENCRYPTED_PROTOCOL_EVENT:
+        return _decode_encrypted_protocol(args)
     raise SnapshotValidationError(f"unsupported Zeek event name {event_name!r}")
 
 
@@ -363,7 +615,7 @@ def _default_connector() -> tuple[Connector, tuple[type[BaseException], ...]]:
         from websockets.sync.client import connect
     except ImportError as exc:
         raise RuntimeError(
-            "the 'websockets==17.1' dependency is required; install requirements.txt"
+            "the 'websockets==16.1.1' dependency is required; install requirements.txt"
         ) from exc
     return connect, (OSError, TimeoutError, WebSocketException)
 

@@ -98,6 +98,11 @@ class DDoSStateManager:
     def get(self, dst_ip: IPAddress) -> DDoSState | None:
         return self._states.get(dst_ip)
 
+    def items(self) -> tuple[tuple[IPAddress, DDoSState], ...]:
+        """Return a stable read-only snapshot for periodic feature extraction."""
+
+        return self._states.items()
+
     def update_flow(self, update: DirectionalFlowUpdate) -> bool:
         bucket = self._bucket(update.key.dst_ip, update.last_seen)
         if bucket is None:

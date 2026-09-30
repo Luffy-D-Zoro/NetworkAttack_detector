@@ -1,0 +1,78 @@
+{
+  "benchmark_version": 1,
+  "generated_at": "2026-09-30T09:28:38.828616Z",
+  "machine": {
+    "logical_cpu_count": 12,
+    "platform": "Linux-7.1.9-arch1-2-x86_64-with-glibc2.44",
+    "processor": "not reported",
+    "python": "3.14.7"
+  },
+  "parameters": {
+    "evaluations": 1000,
+    "events": 10000,
+    "flow_slots": 128
+  },
+  "results": {
+    "full_coordinator": {
+      "duration_seconds": 0.594961,
+      "latency": {
+        "max_us": 33995.217,
+        "mean_us": 59.373,
+        "p50_us": 33.063,
+        "p95_us": 39.995
+      },
+      "operations": 10000,
+      "throughput_per_second": 16807.8
+    },
+    "ml_inference": {
+      "duration_seconds": 4.246316,
+      "latency": {
+        "max_us": 6248.772,
+        "mean_us": 4245.569,
+        "p50_us": 4154.929,
+        "p95_us": 4831.049
+      },
+      "operations": 1000,
+      "throughput_per_second": 235.5
+    },
+    "rule_detector_evaluation": {
+      "duration_seconds": 0.095099,
+      "latency": {
+        "max_us": 357.514,
+        "mean_us": 94.959,
+        "p50_us": 91.307,
+        "p95_us": 115.749
+      },
+      "operations": 1000,
+      "throughput_per_second": 10515.4
+    },
+    "state_fanout": {
+      "duration_seconds": 0.250557,
+      "latency": {
+        "max_us": 314.543,
+        "mean_us": 24.801,
+        "p50_us": 24.521,
+        "p95_us": 25.899
+      },
+      "operations": 10000,
+      "throughput_per_second": 39911.1
+    },
+    "strict_json_ingestion": {
+      "duration_seconds": 0.72511,
+      "latency": {
+        "max_us": 341.945,
+        "mean_us": 72.219,
+        "p50_us": 71.234,
+        "p95_us": 93.095
+      },
+      "operations": 10000,
+      "throughput_per_second": 13791.0
+    }
+  },
+  "scope": {
+    "note": "Local deterministic Python microbenchmark; not production capacity.",
+    "sqlite_included": false,
+    "websocket_network_io_included": false,
+    "zeek_capture_included": false
+  }
+}

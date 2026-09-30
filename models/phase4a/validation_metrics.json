@@ -1,0 +1,547 @@
+{
+  "dataset_notice": "Prototype deterministic synthetic/lab validation only; metrics are not real-world detection accuracy.",
+  "dga_samples": 480,
+  "flow_samples": 384,
+  "generated_at": "2026-09-30T08:09:40.918979+00:00",
+  "models": {
+    "beacon": {
+      "algorithm": "sklearn.ensemble.RandomForestClassifier",
+      "class_distribution": {
+        "beacon_like": 48,
+        "benign_like": 48
+      },
+      "classes": [
+        "beacon_like",
+        "benign_like"
+      ],
+      "expanded_feature_names": [
+        "contact_count",
+        "contact_count__available",
+        "contact_frequency_per_second",
+        "contact_frequency_per_second__available",
+        "connection_interarrival_mean_seconds",
+        "connection_interarrival_mean_seconds__available",
+        "connection_interarrival_variance",
+        "connection_interarrival_variance__available",
+        "connection_interarrival_stddev",
+        "connection_interarrival_stddev__available",
+        "connection_interarrival_coefficient_of_variation",
+        "connection_interarrival_coefficient_of_variation__available",
+        "connection_robust_jitter_seconds",
+        "connection_robust_jitter_seconds__available",
+        "episode_count",
+        "episode_count__available",
+        "episode_frequency_per_second",
+        "episode_frequency_per_second__available",
+        "episode_interarrival_mean_seconds",
+        "episode_interarrival_mean_seconds__available",
+        "episode_interarrival_coefficient_of_variation",
+        "episode_interarrival_coefficient_of_variation__available",
+        "episode_robust_jitter_seconds",
+        "episode_robust_jitter_seconds__available",
+        "episode_packet_mean",
+        "episode_packet_mean__available",
+        "episode_byte_mean",
+        "episode_byte_mean__available",
+        "completed_connection_count",
+        "completed_connection_count__available",
+        "duration_mean_seconds",
+        "duration_mean_seconds__available",
+        "timing_regularity",
+        "timing_regularity__available"
+      ],
+      "family": "beacon",
+      "feature_object": "BeaconFeatures",
+      "metrics": {
+        "accuracy": 1.0,
+        "confusion_matrix": [
+          [
+            12,
+            0
+          ],
+          [
+            0,
+            12
+          ]
+        ],
+        "label_order": [
+          "benign_like",
+          "beacon_like"
+        ],
+        "macro_f1": 1.0,
+        "macro_precision": 1.0,
+        "macro_recall": 1.0,
+        "per_class": {
+          "beacon_like": {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 12
+          },
+          "benign_like": {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 12
+          }
+        }
+      },
+      "missing_value_strategy": "value_zero_plus_explicit_availability_bit",
+      "model_name": "beacon_random_forest",
+      "model_version": "phase4a-prototype-v1",
+      "prototype_data": true,
+      "raw_feature_names": [
+        "contact_count",
+        "contact_frequency_per_second",
+        "connection_interarrival_mean_seconds",
+        "connection_interarrival_variance",
+        "connection_interarrival_stddev",
+        "connection_interarrival_coefficient_of_variation",
+        "connection_robust_jitter_seconds",
+        "episode_count",
+        "episode_frequency_per_second",
+        "episode_interarrival_mean_seconds",
+        "episode_interarrival_coefficient_of_variation",
+        "episode_robust_jitter_seconds",
+        "episode_packet_mean",
+        "episode_byte_mean",
+        "completed_connection_count",
+        "duration_mean_seconds",
+        "timing_regularity"
+      ],
+      "schema_sha256": "5164d989573ba031b3e61755fbe156f1ff4c5ad26fe11fbbef7fec77daa31eae",
+      "schema_version": 1,
+      "train_samples": 72,
+      "training_configuration": {
+        "class_weight": "balanced",
+        "max_depth": 8,
+        "min_samples_leaf": 2,
+        "n_estimators": 120,
+        "n_jobs": 1,
+        "random_state": 2404,
+        "validation_fraction": 0.25
+      },
+      "training_seed": 2404,
+      "validation_samples": 24
+    },
+    "ddos": {
+      "algorithm": "sklearn.ensemble.RandomForestClassifier",
+      "class_distribution": {
+        "benign_like": 48,
+        "ddos_like": 48
+      },
+      "classes": [
+        "benign_like",
+        "ddos_like"
+      ],
+      "expanded_feature_names": [
+        "packets_per_second",
+        "packets_per_second__available",
+        "bytes_per_second",
+        "bytes_per_second__available",
+        "connection_starts_per_second",
+        "connection_starts_per_second__available",
+        "unique_observed_source_estimate",
+        "unique_observed_source_estimate__available",
+        "source_cardinality_saturated",
+        "source_cardinality_saturated__available",
+        "observed_source_entropy",
+        "observed_source_entropy__available",
+        "dominant_source_concentration",
+        "dominant_source_concentration__available",
+        "udp_packet_fraction",
+        "udp_packet_fraction__available",
+        "udp_byte_fraction",
+        "udp_byte_fraction__available",
+        "destination_port_concentration",
+        "destination_port_concentration__available",
+        "syn_starts_per_second",
+        "syn_starts_per_second__available",
+        "establishment_ratio",
+        "establishment_ratio__available",
+        "rejection_ratio",
+        "rejection_ratio__available",
+        "attempt_timeout_ratio",
+        "attempt_timeout_ratio__available",
+        "reset_from_source_fraction",
+        "reset_from_source_fraction__available",
+        "reset_from_destination_fraction",
+        "reset_from_destination_fraction__available",
+        "recent_packet_rate_acceleration",
+        "recent_packet_rate_acceleration__available"
+      ],
+      "family": "ddos",
+      "feature_object": "DDoSFeatures",
+      "metrics": {
+        "accuracy": 1.0,
+        "confusion_matrix": [
+          [
+            12,
+            0
+          ],
+          [
+            0,
+            12
+          ]
+        ],
+        "label_order": [
+          "benign_like",
+          "ddos_like"
+        ],
+        "macro_f1": 1.0,
+        "macro_precision": 1.0,
+        "macro_recall": 1.0,
+        "per_class": {
+          "benign_like": {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 12
+          },
+          "ddos_like": {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 12
+          }
+        }
+      },
+      "missing_value_strategy": "value_zero_plus_explicit_availability_bit",
+      "model_name": "ddos_random_forest",
+      "model_version": "phase4a-prototype-v1",
+      "prototype_data": true,
+      "raw_feature_names": [
+        "packets_per_second",
+        "bytes_per_second",
+        "connection_starts_per_second",
+        "unique_observed_source_estimate",
+        "source_cardinality_saturated",
+        "observed_source_entropy",
+        "dominant_source_concentration",
+        "udp_packet_fraction",
+        "udp_byte_fraction",
+        "destination_port_concentration",
+        "syn_starts_per_second",
+        "establishment_ratio",
+        "rejection_ratio",
+        "attempt_timeout_ratio",
+        "reset_from_source_fraction",
+        "reset_from_destination_fraction",
+        "recent_packet_rate_acceleration"
+      ],
+      "schema_sha256": "524cd45b6a1d87c2b384240b2c1753b30e6e335a71e147c55c7e4d768336a5d5",
+      "schema_version": 1,
+      "train_samples": 72,
+      "training_configuration": {
+        "class_weight": "balanced",
+        "max_depth": 8,
+        "min_samples_leaf": 2,
+        "n_estimators": 120,
+        "n_jobs": 1,
+        "random_state": 2404,
+        "validation_fraction": 0.25
+      },
+      "training_seed": 2404,
+      "validation_samples": 24
+    },
+    "dga": {
+      "algorithm": "character 3-5 gram TF-IDF + LogisticRegression",
+      "class_distribution": {
+        "benign_like": 240,
+        "dga_like": 240
+      },
+      "classes": [
+        "benign_like",
+        "dga_like"
+      ],
+      "family": "dga",
+      "feature_count": 8000,
+      "input_schema": "normalized_dns_query_string",
+      "metrics": {
+        "accuracy": 0.9833333333333333,
+        "confusion_matrix": [
+          [
+            60,
+            0
+          ],
+          [
+            2,
+            58
+          ]
+        ],
+        "label_order": [
+          "benign_like",
+          "dga_like"
+        ],
+        "macro_f1": 0.9833287024173382,
+        "macro_precision": 0.9838709677419355,
+        "macro_recall": 0.9833333333333334,
+        "per_class": {
+          "benign_like": {
+            "f1": 0.9836065573770492,
+            "precision": 0.967741935483871,
+            "recall": 1.0,
+            "support": 60
+          },
+          "dga_like": {
+            "f1": 0.9830508474576272,
+            "precision": 1.0,
+            "recall": 0.9666666666666667,
+            "support": 60
+          }
+        }
+      },
+      "model_name": "dns_dga_char_ngram",
+      "model_version": "phase4a-prototype-v1",
+      "normalization": "strip whitespace, remove trailing dot, lowercase",
+      "prototype_data": true,
+      "schema_sha256": "ae568cb5885a81a05ea61bc721ba85a957f70848c12fdda7b560d2febab3dc40",
+      "schema_version": 1,
+      "train_samples": 360,
+      "training_configuration": {
+        "logistic_class_weight": "balanced",
+        "logistic_max_iter": 1000,
+        "random_state": 2404,
+        "tfidf_analyzer": "char",
+        "tfidf_max_features": 8000,
+        "tfidf_ngram_range": [
+          3,
+          5
+        ],
+        "tfidf_sublinear_tf": true,
+        "validation_fraction": 0.25
+      },
+      "training_seed": 2404,
+      "validation_samples": 120
+    },
+    "exfil": {
+      "algorithm": "sklearn.ensemble.RandomForestClassifier",
+      "class_distribution": {
+        "benign_like": 48,
+        "exfil_like": 48
+      },
+      "classes": [
+        "benign_like",
+        "exfil_like"
+      ],
+      "expanded_feature_names": [
+        "bytes_per_second",
+        "bytes_per_second__available",
+        "packets_per_second",
+        "packets_per_second__available",
+        "total_recent_bytes",
+        "total_recent_bytes__available",
+        "total_recent_packets",
+        "total_recent_packets__available",
+        "active_bucket_count",
+        "active_bucket_count__available",
+        "active_time_fraction",
+        "active_time_fraction__available",
+        "sustained_transfer_duration_seconds",
+        "sustained_transfer_duration_seconds__available",
+        "byte_rate_variance",
+        "byte_rate_variance__available",
+        "byte_rate_burstiness",
+        "byte_rate_burstiness__available",
+        "reverse_observed",
+        "reverse_observed__available",
+        "forward_to_reverse_byte_ratio",
+        "forward_to_reverse_byte_ratio__available",
+        "forward_to_reverse_packet_ratio",
+        "forward_to_reverse_packet_ratio__available"
+      ],
+      "family": "exfil",
+      "feature_object": "ExfilFeatures",
+      "metrics": {
+        "accuracy": 1.0,
+        "confusion_matrix": [
+          [
+            12,
+            0
+          ],
+          [
+            0,
+            12
+          ]
+        ],
+        "label_order": [
+          "benign_like",
+          "exfil_like"
+        ],
+        "macro_f1": 1.0,
+        "macro_precision": 1.0,
+        "macro_recall": 1.0,
+        "per_class": {
+          "benign_like": {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 12
+          },
+          "exfil_like": {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 12
+          }
+        }
+      },
+      "missing_value_strategy": "value_zero_plus_explicit_availability_bit",
+      "model_name": "exfil_random_forest",
+      "model_version": "phase4a-prototype-v1",
+      "prototype_data": true,
+      "raw_feature_names": [
+        "bytes_per_second",
+        "packets_per_second",
+        "total_recent_bytes",
+        "total_recent_packets",
+        "active_bucket_count",
+        "active_time_fraction",
+        "sustained_transfer_duration_seconds",
+        "byte_rate_variance",
+        "byte_rate_burstiness",
+        "reverse_observed",
+        "forward_to_reverse_byte_ratio",
+        "forward_to_reverse_packet_ratio"
+      ],
+      "schema_sha256": "7e71878708140ee78ef276d5c08e1cf83ca1a6638fe64734b4227016cf397bd3",
+      "schema_version": 1,
+      "train_samples": 72,
+      "training_configuration": {
+        "class_weight": "balanced",
+        "max_depth": 8,
+        "min_samples_leaf": 2,
+        "n_estimators": 120,
+        "n_jobs": 1,
+        "random_state": 2404,
+        "validation_fraction": 0.25
+      },
+      "training_seed": 2404,
+      "validation_samples": 24
+    },
+    "scan": {
+      "algorithm": "sklearn.ensemble.RandomForestClassifier",
+      "class_distribution": {
+        "benign_like": 48,
+        "scan_like": 48
+      },
+      "classes": [
+        "benign_like",
+        "scan_like"
+      ],
+      "expanded_feature_names": [
+        "attempts_per_second",
+        "attempts_per_second__available",
+        "syn_starts_per_second",
+        "syn_starts_per_second__available",
+        "unique_destination_ip_estimate",
+        "unique_destination_ip_estimate__available",
+        "unique_destination_port_estimate",
+        "unique_destination_port_estimate__available",
+        "unique_destination_pair_estimate",
+        "unique_destination_pair_estimate__available",
+        "destination_ip_saturated",
+        "destination_ip_saturated__available",
+        "destination_port_saturated",
+        "destination_port_saturated__available",
+        "destination_pair_saturated",
+        "destination_pair_saturated__available",
+        "ip_fanout_per_second",
+        "ip_fanout_per_second__available",
+        "port_fanout_per_second",
+        "port_fanout_per_second__available",
+        "horizontal_fanout_ratio",
+        "horizontal_fanout_ratio__available",
+        "vertical_fanout_ratio",
+        "vertical_fanout_ratio__available",
+        "establishment_ratio",
+        "establishment_ratio__available",
+        "rejection_ratio",
+        "rejection_ratio__available",
+        "no_reply_ratio",
+        "no_reply_ratio__available",
+        "reset_ratio",
+        "reset_ratio__available",
+        "total_attempts",
+        "total_attempts__available"
+      ],
+      "family": "scan",
+      "feature_object": "ScanFeatures",
+      "metrics": {
+        "accuracy": 1.0,
+        "confusion_matrix": [
+          [
+            12,
+            0
+          ],
+          [
+            0,
+            12
+          ]
+        ],
+        "label_order": [
+          "benign_like",
+          "scan_like"
+        ],
+        "macro_f1": 1.0,
+        "macro_precision": 1.0,
+        "macro_recall": 1.0,
+        "per_class": {
+          "benign_like": {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 12
+          },
+          "scan_like": {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 12
+          }
+        }
+      },
+      "missing_value_strategy": "value_zero_plus_explicit_availability_bit",
+      "model_name": "scan_random_forest",
+      "model_version": "phase4a-prototype-v1",
+      "prototype_data": true,
+      "raw_feature_names": [
+        "attempts_per_second",
+        "syn_starts_per_second",
+        "unique_destination_ip_estimate",
+        "unique_destination_port_estimate",
+        "unique_destination_pair_estimate",
+        "destination_ip_saturated",
+        "destination_port_saturated",
+        "destination_pair_saturated",
+        "ip_fanout_per_second",
+        "port_fanout_per_second",
+        "horizontal_fanout_ratio",
+        "vertical_fanout_ratio",
+        "establishment_ratio",
+        "rejection_ratio",
+        "no_reply_ratio",
+        "reset_ratio",
+        "total_attempts"
+      ],
+      "schema_sha256": "155cc13bec8131f92bd05965f73744df52fbe16d4a8e6c5460282db79a5325aa",
+      "schema_version": 1,
+      "train_samples": 72,
+      "training_configuration": {
+        "class_weight": "balanced",
+        "max_depth": 8,
+        "min_samples_leaf": 2,
+        "n_estimators": 120,
+        "n_jobs": 1,
+        "random_state": 2404,
+        "validation_fraction": 0.25
+      },
+      "training_seed": 2404,
+      "validation_samples": 24
+    }
+  },
+  "python_version": "3.14.7",
+  "scikit_learn_version": "1.9.1",
+  "seed": 2404,
+  "training_seconds": 0.7290888069983339
+}

@@ -8,6 +8,7 @@ import os
 import sys
 from datetime import UTC, datetime, timedelta
 from typing import TextIO
+from pathlib import Path
 
 from src.coordinator import StreamingCoordinator
 from src.flow.flow_manager import FlowManager
@@ -19,11 +20,14 @@ from src.ingestion.zeek_websocket import (
     iter_events,
     websocket_uri,
 )
+from src.alerts.service import AlertService
+from src.alerts.storage import AlertStorageError, SQLiteAlertRepository
 
 DEFAULT_INACTIVITY_TIMEOUT = 120.0
 DEFAULT_CLEANUP_INTERVAL = 5.0
 DEFAULT_INSPECTION_INTERVAL = 5.0
 DEFAULT_CORRELATION_TIMEOUT = 300.0
+DEFAULT_ALERT_DATABASE = "var/alerts/alerts.db"
 
 
 def _positive_seconds(value: str) -> float:
@@ -73,6 +77,7 @@ def run_pipeline(
     cleanup_interval: timedelta,
     inspection_interval: timedelta,
     correlation_timeout: timedelta,
+    alert_database: Path | None = None,
     output: TextIO = sys.stdout,
 ) -> None:
     if correlation_timeout < inactivity_timeout:
@@ -82,14 +87,23 @@ def run_pipeline(
         inactivity_timeout=inactivity_timeout,
         cleanup_interval=cleanup_interval,
     )
+    repository = None
+    if alert_database is not None:
+        try:
+            repository = SQLiteAlertRepository(alert_database)
+        except AlertStorageError as exc:
+            print(f"Warning: alert persistence disabled: {exc}", file=sys.stderr)
     coordinator = StreamingCoordinator(
         flow_manager=manager,
         correlation_timeout=correlation_timeout,
+        alert_service=AlertService(repository=repository),
     )
     last_inspection_at: datetime | None = None
 
     for event in iter_events(uri, topic):
-        coordinator.process(event)
+        result = coordinator.process(event)
+        for alert in result.alerts:
+            print(json.dumps({"alert": alert.to_dict()}, sort_keys=True), file=output, flush=True)
 
         if not isinstance(event, FlowSnapshot):
             continue
@@ -109,6 +123,11 @@ def main(argv: list[str] | None = None) -> int:
         "--port", type=_port, default=_port(os.getenv("FLOW_STREAM_PORT", str(DEFAULT_PORT)))
     )
     parser.add_argument("--topic", default=os.getenv("FLOW_STREAM_TOPIC", DEFAULT_TOPIC))
+    parser.add_argument(
+        "--alert-db", type=Path,
+        default=Path(os.getenv("ALERT_DB_PATH", DEFAULT_ALERT_DATABASE)),
+        help="SQLite file for retained final alerts",
+    )
     parser.add_argument(
         "--inactivity-timeout",
         type=_positive_seconds,
@@ -154,6 +173,7 @@ def main(argv: list[str] | None = None) -> int:
             cleanup_interval=timedelta(seconds=args.cleanup_interval),
             inspection_interval=timedelta(seconds=args.inspection_interval),
             correlation_timeout=timedelta(seconds=args.correlation_timeout),
+            alert_database=args.alert_db,
         )
     except KeyboardInterrupt:
         return 130

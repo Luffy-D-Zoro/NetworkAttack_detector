@@ -333,6 +333,8 @@ event Cluster::websocket_client_added(endpoint: Cluster::EndpointInfo,
                 self.assertTrue(signal_result.tcp_signal_accepted)
                 self.assertGreaterEqual(len(coordinator.ddos_manager), 1)
                 self.assertGreaterEqual(len(coordinator.scan_manager), 1)
+                self.assertGreaterEqual(len(coordinator.exfil_manager), 1)
+                self.assertGreaterEqual(len(coordinator.beacon_manager), 1)
             finally:
                 process.terminate()
                 try:

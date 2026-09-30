@@ -328,6 +328,16 @@ class DispatcherAndCoordinatorTests(unittest.TestCase):
         self.assertEqual(len(flow_manager), 1)
         self.assertIsNotNone(coordinator.ddos_manager.get(ip("198.51.100.10")))
         self.assertIsNotNone(coordinator.scan_manager.get(ip("192.0.2.1")))
+        self.assertIsNotNone(
+            coordinator.exfil_manager.get(
+                (ip("192.0.2.1"), ip("198.51.100.10"))
+            )
+        )
+        self.assertIsNotNone(
+            coordinator.beacon_manager.get(
+                (ip("192.0.2.1"), ip("198.51.100.10"), 443, 6)
+            )
+        )
 
 
 class BoundedPrimitiveTests(unittest.TestCase):

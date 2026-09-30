@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
@@ -135,6 +135,12 @@ def _stable_digest(value: object) -> bytes:
     return hashlib.blake2b(normalized, digest_size=16).digest()
 
 
+def stable_digest(value: object) -> bytes:
+    """Return the project's stable BLAKE2b-128 correlation digest."""
+
+    return _stable_digest(value)
+
+
 class BoundedHashSet:
     """Store only stable 128-bit digests and expose overflow observations."""
 
@@ -151,6 +157,12 @@ class BoundedHashSet:
     @property
     def saturated(self) -> bool:
         return self.overflow_count > 0
+
+    @property
+    def digests(self) -> frozenset[bytes]:
+        """Expose immutable digests for bounded cross-bucket cardinality."""
+
+        return frozenset(self._digests)
 
     def add(self, value: object) -> bool:
         digest = _stable_digest(value)
@@ -200,6 +212,14 @@ class CappedStateTable(Generic[K, V]):
     def items(self) -> tuple[tuple[K, V], ...]:
         return tuple(self._values.items())
 
+    def evict_oldest(self) -> tuple[K, V] | None:
+        """Explicitly evict the LRU entry for managers with join cleanup."""
+
+        if not self._values:
+            return None
+        self.capacity_evictions += 1
+        return self._values.popitem(last=False)
+
 
 class BoundedEventDeduplicator(Generic[K]):
     """Bound signal identity by both event-time horizon and entry count."""
@@ -215,6 +235,9 @@ class BoundedEventDeduplicator(Generic[K]):
 
     def __len__(self) -> int:
         return len(self._seen)
+
+    def contains(self, key: K) -> bool:
+        return key in self._seen
 
     def accept(self, key: K, event_time: datetime) -> bool:
         event_time = _utc(event_time)
@@ -239,6 +262,72 @@ class BoundedEventDeduplicator(Generic[K]):
         for key in expired:
             del self._seen[key]
         return len(expired)
+
+
+class BoundedTimeDeque(Generic[V]):
+    """Timestamp-ordered samples bounded by both horizon and count."""
+
+    def __init__(
+        self,
+        *,
+        horizon: timedelta,
+        max_samples: int,
+        timestamp: Callable[[V], datetime],
+    ) -> None:
+        if horizon <= timedelta(0) or max_samples <= 0:
+            raise ValueError("sample horizon and maximum count must be positive")
+        self.horizon = horizon
+        self.max_samples = max_samples
+        self._timestamp = timestamp
+        self._values: deque[V] = deque()
+
+    def __len__(self) -> int:
+        return len(self._values)
+
+    def __iter__(self) -> Iterator[V]:
+        return iter(self._values)
+
+    def insert(self, value: V, *, watermark: datetime) -> bool:
+        """Insert in timestamp order; reject samples older than the horizon."""
+
+        watermark = _utc(watermark)
+        value_time = _utc(self._timestamp(value))
+        if value_time < watermark - self.horizon:
+            return False
+
+        if not self._values or value_time >= _utc(self._timestamp(self._values[-1])):
+            self._values.append(value)
+        else:
+            values = list(self._values)
+            index = len(values)
+            while index > 0 and value_time < _utc(self._timestamp(values[index - 1])):
+                index -= 1
+            values.insert(index, value)
+            self._values = deque(values)
+
+        self.expire(watermark)
+        while len(self._values) > self.max_samples:
+            self._values.popleft()
+        return any(retained is value for retained in self._values)
+
+    def replace(self, values: Iterator[V], *, watermark: datetime) -> None:
+        """Replace with ordered bounded values, used for rare late merges."""
+
+        self._values.clear()
+        for value in values:
+            self.insert(value, watermark=watermark)
+
+    def expire(self, now: datetime) -> int:
+        now = _utc(now)
+        cutoff = now - self.horizon
+        removed = 0
+        while self._values and _utc(self._timestamp(self._values[0])) < cutoff:
+            self._values.popleft()
+            removed += 1
+        while len(self._values) > self.max_samples:
+            self._values.popleft()
+            removed += 1
+        return removed
 
 
 def _utc(value: datetime) -> datetime:

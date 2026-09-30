@@ -1,0 +1,7 @@
+# Runtime Zeek logs are local observations, not repository artifacts.
+var/zeek/
+
+# Local Python environments and bytecode are not repository artifacts.
+.venv/
+__pycache__/
+*.py[cod]

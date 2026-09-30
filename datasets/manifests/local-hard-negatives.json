@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "name": "local-benign-hard-negatives",
+  "citation": "Owner-confirmed benign local captures collected for false-positive hardening",
+  "captures": [
+    {
+      "capture_id": "benign-idle-3min",
+      "dataset_name": "local-benign-hard-negatives",
+      "pcap_path": "../../data/external/local/benign_idle_3min.pcap",
+      "label": "benign",
+      "role": "train",
+      "split_group": "benign-idle-3min",
+      "metadata": {"scenario": "idle workstation"}
+    },
+    {
+      "capture_id": "benign-browsing-3min",
+      "dataset_name": "local-benign-hard-negatives",
+      "pcap_path": "../../data/external/local/benign_browsing_3min.pcap",
+      "label": "benign",
+      "role": "train",
+      "split_group": "benign-browsing-3min",
+      "metadata": {"scenario": "ordinary browser activity including HTTPS/CDN/QUIC"}
+    },
+    {
+      "capture_id": "benign-dns-3min",
+      "dataset_name": "local-benign-hard-negatives",
+      "pcap_path": "../../data/external/local/benign_dns_3min.pcap",
+      "label": "benign",
+      "role": "validation",
+      "split_group": "benign-dns-3min",
+      "metadata": {"scenario": "ordinary DNS activity"}
+    },
+    {
+      "capture_id": "benign-youtube-3min",
+      "dataset_name": "local-benign-hard-negatives",
+      "pcap_path": "../../data/external/local/benign_youtube_3min.pcap",
+      "label": "benign",
+      "role": "test",
+      "split_group": "benign-youtube-3min",
+      "metadata": {"scenario": "YouTube/video/CDN streaming"}
+    },
+    {
+      "capture_id": "benign-download-3min",
+      "dataset_name": "local-benign-hard-negatives",
+      "pcap_path": "../../data/external/local/benign_download_3min.pcap",
+      "label": "benign",
+      "role": "test",
+      "split_group": "benign-download-3min",
+      "metadata": {"scenario": "legitimate high-volume download"}
+    }
+  ]
+}

@@ -1,0 +1,182 @@
+{
+  "captures": [
+    {
+      "capture_id": "benign-idle-3min",
+      "dga_queries_eligible": 78,
+      "dga_queries_semantically_rejected": 115,
+      "evaluated_states_windows": {
+        "beacon": 1010,
+        "ddos": 333,
+        "dns": 158,
+        "encrypted": 32,
+        "exfil": 695,
+        "scan": 237
+      },
+      "final_alert_count": 0,
+      "final_alerts": {},
+      "ml_evaluated": {
+        "beacon": 1010,
+        "ddos": 333,
+        "dga": 78,
+        "exfil": 695,
+        "scan": 237
+      },
+      "ml_suspicious": {
+        "beacon": 1002
+      },
+      "production_events": 5659,
+      "role": "train",
+      "rule_suspicious": {}
+    },
+    {
+      "capture_id": "benign-browsing-3min",
+      "dga_queries_eligible": 2038,
+      "dga_queries_semantically_rejected": 91,
+      "evaluated_states_windows": {
+        "beacon": 12981,
+        "ddos": 1404,
+        "dns": 125,
+        "encrypted": 1502,
+        "exfil": 2733,
+        "scan": 249
+      },
+      "final_alert_count": 4,
+      "final_alerts": {
+        "beaconing": 2,
+        "scan": 2
+      },
+      "ml_evaluated": {
+        "beacon": 12981,
+        "ddos": 1404,
+        "dga": 2038,
+        "exfil": 2733,
+        "scan": 249
+      },
+      "ml_suspicious": {
+        "beacon": 12460,
+        "ddos": 8,
+        "dga": 450,
+        "scan": 16
+      },
+      "production_events": 41552,
+      "role": "train",
+      "rule_suspicious": {
+        "beacon": 28,
+        "dns": 16,
+        "scan": 16
+      }
+    },
+    {
+      "capture_id": "benign-dns-3min",
+      "dga_queries_eligible": 3319,
+      "dga_queries_semantically_rejected": 28,
+      "evaluated_states_windows": {
+        "beacon": 15003,
+        "ddos": 1773,
+        "dns": 135,
+        "encrypted": 1854,
+        "exfil": 3546,
+        "scan": 276
+      },
+      "final_alert_count": 5,
+      "final_alerts": {
+        "beaconing": 1,
+        "dns": 2,
+        "scan": 2
+      },
+      "ml_evaluated": {
+        "beacon": 15003,
+        "ddos": 1773,
+        "dga": 3319,
+        "exfil": 3546,
+        "scan": 276
+      },
+      "ml_suspicious": {
+        "beacon": 14567,
+        "ddos": 5,
+        "dga": 565,
+        "scan": 16
+      },
+      "production_events": 50843,
+      "role": "validation",
+      "rule_suspicious": {
+        "beacon": 13,
+        "dns": 15,
+        "scan": 16
+      }
+    },
+    {
+      "capture_id": "benign-youtube-3min",
+      "dga_queries_eligible": 417,
+      "dga_queries_semantically_rejected": 156,
+      "evaluated_states_windows": {
+        "beacon": 3253,
+        "ddos": 716,
+        "dns": 140,
+        "encrypted": 491,
+        "exfil": 1369,
+        "scan": 217
+      },
+      "final_alert_count": 3,
+      "final_alerts": {
+        "beaconing": 1,
+        "scan": 2
+      },
+      "ml_evaluated": {
+        "beacon": 3253,
+        "ddos": 716,
+        "dga": 417,
+        "exfil": 1369,
+        "scan": 217
+      },
+      "ml_suspicious": {
+        "beacon": 3159,
+        "dga": 62,
+        "scan": 12
+      },
+      "production_events": 13682,
+      "role": "test",
+      "rule_suspicious": {
+        "beacon": 15,
+        "scan": 10
+      }
+    },
+    {
+      "capture_id": "benign-download-3min",
+      "dga_queries_eligible": 141,
+      "dga_queries_semantically_rejected": 72,
+      "evaluated_states_windows": {
+        "beacon": 2222,
+        "ddos": 532,
+        "dns": 189,
+        "encrypted": 167,
+        "exfil": 1232,
+        "scan": 320
+      },
+      "final_alert_count": 2,
+      "final_alerts": {
+        "beaconing": 1,
+        "scan": 1
+      },
+      "ml_evaluated": {
+        "beacon": 2222,
+        "ddos": 532,
+        "dga": 141,
+        "exfil": 1232,
+        "scan": 320
+      },
+      "ml_suspicious": {
+        "beacon": 2176,
+        "dga": 30,
+        "scan": 15
+      },
+      "production_events": 8506,
+      "role": "test",
+      "rule_suspicious": {
+        "beacon": 17,
+        "scan": 10
+      }
+    }
+  ],
+  "dataset": "local-benign-hard-negatives"
+}

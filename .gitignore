@@ -2,6 +2,12 @@
 var/zeek/
 var/alerts/
 
+# Public/local calibration PCAPs, downloaded corpora, and extracted row caches
+# are reproducible inputs but can be very large. Manifests and metrics remain
+# tracked under datasets/ and models/.
+data/external/cache/
+data/external/local/
+
 # Local Python environments and bytecode are not repository artifacts.
 .venv/
 __pycache__/
@@ -11,3 +17,6 @@ __pycache__/
 *.db
 *.db-shm
 *.db-wal
+*.log
+
+*.mp4

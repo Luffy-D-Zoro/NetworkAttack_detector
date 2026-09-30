@@ -134,7 +134,12 @@ class DDoSDetector:
                 features.udp_packet_fraction is not None
                 and features.udp_packet_fraction >= self.config.udp_fraction_threshold
                 and features.packets_per_second >= self.config.packet_rate_threshold,
-                f"UDP-dominant high-rate traffic ({features.udp_packet_fraction:.3f} packet fraction)",
+                (
+                    f"UDP-dominant high-rate traffic "
+                    f"({features.udp_packet_fraction:.3f} packet fraction)"
+                    if features.udp_packet_fraction is not None
+                    else "UDP-dominant high-rate traffic"
+                ),
             ),
             (
                 features.recent_packet_rate_acceleration is not None
@@ -169,6 +174,9 @@ class ScanDetectorConfig:
     vertical_ratio_threshold: float = 3.0
     maximum_establishment_ratio: float = 0.4
     minimum_failure_ratio: float = 0.4
+    successful_fanout_establishment_ratio: float = 0.8
+    successful_fanout_maximum_failure_ratio: float = 0.1
+    minimum_unique_pair_fraction: float = 0.5
     trigger_score: float = 0.4
     minimum_evidence: int = 2
 
@@ -194,6 +202,23 @@ class ScanDetector:
             and features.vertical_fanout_ratio >= self.config.vertical_ratio_threshold
         )
         failure_ratio = sum(value for value in (features.rejection_ratio, features.no_reply_ratio) if value is not None)
+        unique_pair_fraction = (
+            features.unique_destination_pair_estimate / features.total_attempts
+            if features.total_attempts else 0.0
+        )
+        # Browsers, package managers, and CDN clients can contact many HTTPS
+        # destinations quickly.  When Zeek observes that those TCP handshakes
+        # overwhelmingly establish and rarely fail, horizontal fan-out is
+        # explicit benign counterevidence rather than sufficient scan proof.
+        successful_horizontal_fanout = (
+            horizontal
+            and not vertical
+            and features.establishment_ratio is not None
+            and features.establishment_ratio
+            >= self.config.successful_fanout_establishment_ratio
+            and failure_ratio
+            <= self.config.successful_fanout_maximum_failure_ratio
+        )
         signals = (
             (
                 features.attempts_per_second >= self.config.attempts_per_second_threshold
@@ -203,6 +228,10 @@ class ScanDetector:
             (
                 features.unique_destination_pair_estimate >= self.config.unique_destination_pair_threshold,
                 f"broad destination-pair fan-out ({features.unique_destination_pair_estimate})",
+            ),
+            (
+                unique_pair_fraction >= self.config.minimum_unique_pair_fraction,
+                f"attempts predominantly target new destination pairs ({unique_pair_fraction:.3f})",
             ),
             (horizontal, f"horizontal fan-out ({features.unique_destination_ip_estimate} IPs)"),
             (vertical, f"vertical fan-out ({features.unique_destination_port_estimate} ports)"),
@@ -215,13 +244,20 @@ class ScanDetector:
         )
         saturated = any((features.destination_ip_saturated, features.destination_port_saturated, features.destination_pair_saturated))
         extra = ("one or more fan-out structures saturated; estimates are lower-confidence",) if saturated else ()
+        if successful_horizontal_fanout:
+            extra += (
+                "high-IP fan-out was predominantly successfully established; "
+                "treated as benign service/CDN counterevidence",
+            )
         return _result(
             self.name,
             features,
             signals=signals,
             trigger_score=self.config.trigger_score,
             minimum_evidence=self.config.minimum_evidence,
-            required=horizontal or vertical,
+            required=(horizontal or vertical)
+            and unique_pair_fraction >= self.config.minimum_unique_pair_fraction
+            and not successful_horizontal_fanout,
             extra_evidence=extra,
         )
 
@@ -292,6 +328,7 @@ class BeaconDetectorConfig:
     minimum_timing_regularity: float = 0.85
     maximum_episode_size_coefficient_of_variation: float = 0.3
     maximum_connection_size_coefficient_of_variation: float = 0.3
+    minimum_contact_interarrival_seconds: float = 1.0
     trigger_score: float = 0.5
     minimum_evidence: int = 2
 
@@ -310,6 +347,24 @@ class BeaconDetector:
         return math.sqrt(variance) / mean
 
     def detect(self, features: BeaconFeatures) -> DetectorResult:
+        if (
+            features.destination_is_multicast
+            or features.destination_is_limited_broadcast
+            or features.destination_is_unspecified
+        ):
+            return DetectorResult(
+                detector=self.name,
+                subject=features.subject,
+                timestamp=features.timestamp,
+                score=0.0,
+                triggered=False,
+                disposition="benign_like",
+                evidence=(
+                    "destination is multicast, limited broadcast, or unspecified; "
+                    "periodicity is not unicast C2 beacon evidence",
+                ),
+                available_features=features.available_features(),
+            )
         if features.contact_count < self.config.minimum_contacts and features.episode_count < self.config.minimum_episodes:
             return _insufficient(self.name, features, "too few retained contacts and episodes")
         contact_regular = (
@@ -319,6 +374,8 @@ class BeaconDetector:
             and features.timing_regularity >= self.config.minimum_timing_regularity
             and features.connection_robust_jitter_seconds is not None
             and features.connection_interarrival_mean_seconds is not None
+            and features.connection_interarrival_mean_seconds
+            >= self.config.minimum_contact_interarrival_seconds
             and features.connection_robust_jitter_seconds
             <= features.connection_interarrival_mean_seconds * self.config.maximum_jitter_fraction
         )

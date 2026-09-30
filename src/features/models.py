@@ -87,6 +87,9 @@ class ExfilFeatures(FeatureObject):
 
 @dataclass(frozen=True, slots=True)
 class BeaconFeatures(FeatureObject):
+    destination_is_multicast: bool
+    destination_is_limited_broadcast: bool
+    destination_is_unspecified: bool
     contact_count: int
     contact_frequency_per_second: float | None
     connection_interarrival_mean_seconds: float | None

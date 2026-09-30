@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "name": "targeted-public-pcap-subsets",
+  "source_url": "See each capture metadata.source_url and datasets/README.md",
+  "captures": [
+    {
+      "capture_id": "cic-ddos2019-syn-train",
+      "dataset_name": "CIC-DDoS2019",
+      "pcap_path": "../../../data/external/cache/cic-ddos2019/syn-train.pcap",
+      "label": "attack",
+      "threat_family": "ddos",
+      "role": "train",
+      "split_group": "cic-ddos2019-training-day-syn",
+      "metadata": {"victim_ips": [], "attacker_ips": [], "source_url": "https://www.unb.ca/cic/datasets/ddos-2019.html"}
+    },
+    {
+      "capture_id": "cic-ids2017-monday-benign-test",
+      "dataset_name": "CIC-IDS2017",
+      "pcap_path": "../../../data/external/cache/cic-ids2017/monday-benign.pcap",
+      "label": "benign",
+      "role": "test",
+      "split_group": "cic-ids2017-monday",
+      "metadata": {"source_url": "https://www.unb.ca/cic/datasets/ids-2017.html"}
+    },
+    {
+      "capture_id": "cic-ids2017-friday-portscan-validation",
+      "dataset_name": "CIC-IDS2017",
+      "pcap_path": "../../../data/external/cache/cic-ids2017/friday-portscan.pcap",
+      "label": "attack",
+      "threat_family": "scan",
+      "role": "validation",
+      "split_group": "cic-ids2017-friday-portscan",
+      "metadata": {"attacker_ips": ["172.16.0.1"], "victim_ips": ["192.168.10.50"], "source_url": "https://www.unb.ca/cic/datasets/ids-2017.html"}
+    },
+    {
+      "capture_id": "ctu13-botnet-test",
+      "dataset_name": "CTU-13",
+      "pcap_path": "../../../data/external/cache/ctu13/scenario-botnet.pcap",
+      "label": "attack",
+      "threat_family": "beacon",
+      "role": "test",
+      "split_group": "ctu13-scenario-held-out",
+      "metadata": {"source_ips": [], "destination_ips": [], "source_url": "https://www.stratosphereips.org/datasets-ctu13"}
+    },
+    {
+      "capture_id": "cic-bell-dns-heavy-exfil-validation",
+      "dataset_name": "CIC-Bell-DNS-EXF-2021",
+      "pcap_path": "../../../data/external/cache/cic-bell-dns-exf/heavy.pcap",
+      "label": "attack",
+      "threat_family": "dns",
+      "role": "validation",
+      "split_group": "cic-bell-heavy-files",
+      "metadata": {"source_url": "https://www.unb.ca/cic/datasets/dns-exf-2021.html"}
+    }
+  ]
+}

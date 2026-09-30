@@ -41,15 +41,45 @@ Signals are evidence, not ground truth. Final fusion keeps rule and ML evidence 
 
 ## ML and its limits
 
-Four family-specific `RandomForestClassifier` models use the same production feature extractors as runtime. The DNS DGA model is character n-gram TF-IDF plus `LogisticRegression` over the original normalized query string. Train reproducibly with:
+Four family-specific `RandomForestClassifier` models use the same production feature extractors as runtime. They still use deterministic synthetic scenarios and have not been presented as field-calibrated. The DNS DGA model is character n-gram TF-IDF plus class-weighted `LogisticRegression` and sigmoid calibration over the original normalized query string. Train reproducibly with:
 
 ```bash
 .venv/bin/python scripts/train_models.py
+.venv/bin/python scripts/train_research_dga.py \
+  --corpus data/external/cache/dga_domains_full.csv
 ```
 
-Artifacts and exact schema manifests are in [`models/phase4a`](models/phase4a); generated lab datasets and validation records are in [`data/phase4a`](data/phase4a). Model loading rejects incompatible schemas and degrades gracefully if an artifact is absent.
+Artifacts and exact schema manifests are in [`models/phase4a`](models/phase4a); generated lab datasets are in [`data/ml`](data/ml), and validation records are stored with the model artifacts. Model loading rejects incompatible schemas and degrades gracefully if an artifact is absent.
 
-The training corpus is deterministic **synthetic/lab data**, not representative field ground truth. Its validation metrics—including any perfect scores—only validate pipeline mechanics and scenario separation; they are not real-world accuracy claims and are not evidence of production readiness or calibration.
+The four behavioral training corpora are deterministic **synthetic/lab data**,
+not representative field ground truth. The committed DGA artifact was retrained
+on 674,898 rows from the public DGA_domains_dataset using DGA-family-isolated
+partitions. Its held-out-family precision/recall/F1 are 0.9736/0.4755/0.6389 at
+the validation-selected 0.891 alert threshold. These remain research-corpus lab
+results, not live-network accuracy. Full provenance, confusion counts, PR-AUC,
+ROC-AUC, and limitations are in [`CALIBRATION_REPORT.md`](CALIBRATION_REPORT.md).
+
+## Real-PCAP calibration
+
+External raw PCAPs are gitignored. Strict manifests under
+[`datasets/manifests`](datasets/manifests) record capture/scenario split groups,
+roles, attack intervals, and known endpoints. Extraction runs the PCAP through
+Zeek's production event producers and the existing coordinator, state managers,
+and feature extractors—never CICFlowMeter or incompatible CSV features:
+
+```bash
+.venv/bin/python scripts/extract_external_dataset.py \
+  datasets/manifests/local-hard-negatives.example.json
+
+.venv/bin/python scripts/calibrate_behavioral_models.py scan \
+  data/external/cache/features/*.jsonl --output models/calibrated
+```
+
+The templates support targeted CIC-DDoS2019, CIC-IDS2017, CTU-13,
+CIC-Bell-DNS-EXF-2021, and owner-local benign captures. Capture groups cannot
+cross train/validation/test roles. USTC-TFC2016 and CIRA-CIC-DoHBrw-2020 are
+evaluation candidates only after their raw capture labels are shown to map
+faithfully to current encrypted-session subjects.
 
 ## Unidirectional design
 
@@ -119,11 +149,18 @@ Run all offline checks:
 .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/python -m compileall -q src dashboard scripts tests
 .venv/bin/pip check
-zeek -a zeek/flow_stream.zeek
+zeek -a zeek/flow_stream.zeek zeek/calibration_capture.zeek
 zsh -n scripts/*.sh
 ```
 
 The repository includes automated Zeek/PCAP/WebSocket/coordinator tests for flow, TCP semantics, DNS, TLS, and QUIC metadata. Some integration tests skip when the matching system PCAP is unavailable.
+
+The calibrated-hardening suite contains **135 passing tests**. On the recorded local
+Python 3.14.7 / Linux x86-64 run, strict JSON validation processed 13,791.0
+events/s, direct state fan-out 39,911.1 updates/s, and the object-level full
+coordinator 16,807.8 events/s. Rule evaluation averaged 94.959 µs and one
+behavioral Random Forest inference averaged 4,245.569 µs. These exclude Zeek,
+network I/O, and SQLite and are not production-capacity claims.
 
 Run the local CPU-side benchmark:
 
@@ -135,7 +172,13 @@ See [`benchmarks/latest.json`](benchmarks/latest.json) and [`benchmarks/README.m
 
 ## Current limitations
 
-- Models are trained on synthetic/lab scenarios and need compatible real labeled data, threshold tuning, calibration, drift monitoring, and adversarial evaluation.
+- Behavioral models remain trained on synthetic/lab scenarios and need the
+  named compatible PCAPs plus owner-confirmed benign hard negatives before
+  field retraining/fusion calibration. Only the DGA model has been retrained on
+  a public research corpus.
+- Local benign alerts/hour and per-family false-alert rates remain unmeasured
+  because the requested workstation/browser/video/update/upload PCAPs were not
+  present in this workspace.
 - The prototype has no anomaly detector; this is intentional for the hackathon scope.
 - Observed source IPs are not necessarily true attackers (spoofing is possible), and a destination is not automatically a confirmed victim.
 - Passive unidirectional visibility cannot infer missing reverse traffic, payload content, endpoint state, or intent.
@@ -143,5 +186,16 @@ See [`benchmarks/latest.json`](benchmarks/latest.json) and [`benchmarks/README.m
 - Bounded maps/sets can saturate; features expose saturation rather than pretending exact cardinality.
 - SQLite is suitable for this single-host prototype, not a distributed/high-availability deployment.
 - Live capture requires Zeek, a suitable interface, traffic, and OS capture permission; the dashboard can only display alerts that meet configured final thresholds.
+
+If `var/` was first created by a privileged Zeek run, its ownership may prevent
+the unprivileged backend from creating `var/alerts/alerts.db`. Create the alert
+directory as the runtime user before the demo, or select a writable path for
+both processes:
+
+```bash
+ALERT_DB_PATH=/tmp/sih-alerts.db .venv/bin/python -m src.main
+ALERT_DB_PATH=/tmp/sih-alerts.db .venv/bin/streamlit run dashboard/app.py
+.venv/bin/python scripts/generate_demo_alerts.py --database /tmp/sih-alerts.db
+```
 
 The authoritative architecture is [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md), current implementation status is [`HANDOFF.md`](HANDOFF.md), and Phase 2 state contracts are in [`PHASE2_STATE_DESIGN.md`](PHASE2_STATE_DESIGN.md).

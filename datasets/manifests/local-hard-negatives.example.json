@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "name": "local-benign-hard-negatives",
+  "citation": "Locally captured, owner-confirmed benign lab activity",
+  "captures": [
+    {
+      "capture_id": "local-browser-train",
+      "dataset_name": "local-benign-hard-negatives",
+      "pcap_path": "../../../data/external/cache/local/browser.pcap",
+      "label": "benign",
+      "role": "train",
+      "split_group": "local-browser-session-1",
+      "metadata": {"scenario": "Chrome/Firefox browsing, HTTPS CDN and QUIC"}
+    },
+    {
+      "capture_id": "local-video-test",
+      "dataset_name": "local-benign-hard-negatives",
+      "pcap_path": "../../../data/external/cache/local/video.pcap",
+      "label": "benign",
+      "role": "test",
+      "split_group": "local-video-session-1",
+      "metadata": {"scenario": "video/CDN streaming and long-lived connections"}
+    }
+  ]
+}

@@ -2,7 +2,8 @@
 
 ## Current Phase
 
-Phase 4 — implementation block B complete
+Focused real-data calibration/model-hardening checkpoint implemented; external
+behavioral PCAP collection remains outstanding
 
 Implemented checkpoints:
 
@@ -31,13 +32,19 @@ Implemented checkpoints:
   exfiltration, beaconing, and DNS DGA classification in Phase 4A.
 - Transparent rule/ML fusion, canonical structured alerts, bounded cooldown
   suppression, and retained final-alert SQLite storage in Phase 4B.
+- Read-only auto-refreshing Streamlit alert dashboard, controlled all-family
+  demo workflow, reproducible local benchmark, and final project documentation.
+- External dataset manifests and exact Zeek replay/feature-row caching,
+  semantic false-positive corrections, grouped model comparison/calibration
+  tooling, and public-research-corpus DGA retraining.
 
 Phase 1 is accepted and working on the live interface. Phase 2 state
 implementation blocks A, B, and C are implemented and automated-test/PCAP
 verified. Phase 3 blocks A and B are implemented and verified, covering all
 six state families. Phase 4A ML and Phase 4B alerting are implemented and
-verified. Anomaly detection, additional ML, and dashboard work have not
-started.
+verified. The final dashboard/demo/benchmark/documentation checkpoint is also
+implemented and verified. Anomaly detection and additional ML remain
+intentionally outside this prototype.
 
 ## Current Status
 
@@ -70,6 +77,7 @@ live Zeek
   → canonical StructuredAlert
   → bounded cooldown suppression
   → SQLite final-alert repository
+  → read-only auto-refreshing Streamlit dashboard
 ```
 
 The live Zeek → WebSocket → Python transport was manually runtime-verified on
@@ -77,13 +85,29 @@ The live Zeek → WebSocket → Python transport was manually runtime-verified o
 observed continuously. The earlier live Zeek check also produced `conn.log`,
 `dns.log`, `ssl.log`, `quic.log`, and other standard logs from real traffic.
 
-The complete 120-test suite passes, including real Zeek 8.0.6 DNS and TLS test-
+The complete 135-test suite passes, including real Zeek 8.0.6 DNS and TLS test-
 PCAP → loopback WebSocket → strict dispatcher → coordinator integration tests,
 plus the prior flow/TCP integration through FlowManager and the Block A/B
 state managers and all Phase 3 block A/B deterministic detector scenarios. The
 complete Phase 1 pipeline remains accepted and working on the live interface.
 The state/detector path has not received a separate live-`wlo1` run; it is
 automated-test and PCAP verified.
+
+The calibration checkpoint adds strict external capture manifests, exact
+offline Zeek production-event replay, cached production feature rows,
+capture-group split enforcement, three-candidate behavioral training/evaluation
+tooling, and immutable per-family fusion overrides. Beacon multicast/broadcast
+and successful HTTPS/CDN scan false positives are semantically guarded without
+discarding traffic. The DGA model was actually retrained on 674,898 public
+research-corpus rows with DGA families isolated across train/validation/test;
+its untouched held-out-family test precision/recall/F1 are
+0.9736/0.4755/0.6389 at threshold 0.891. See `CALIBRATION_REPORT.md`.
+
+CIC-DDoS2019, CIC-IDS2017, CTU-13, CIC-Bell-DNS-EXF-2021, USTC-TFC2016,
+CIRA-CIC-DoHBrw-2020, and owner-local benign PCAPs were not present and were
+not silently substituted. Consequently the four behavioral model artifacts
+and their equal-weight fusion defaults remain prototype/synthetic and are not
+called real-data calibrated; local benign alerts/hour is not yet measured.
 
 The complete Phase 2 state architecture is documented in
 [`PHASE2_STATE_DESIGN.md`](PHASE2_STATE_DESIGN.md). It defines exact keys,
@@ -96,9 +120,9 @@ All six designed state managers now exist: `DDoSStateManager`,
 `DNSStateManager`, and `EncryptedStateManager`. All six have deterministic
 feature extractors and prototype rule detectors. Their `DetectorResult` values
 and Phase 4A `MLResult` values remain available as independent internal
-evaluations. Phase 4B can fuse compatible behavioral results into final
-`StructuredAlert` values and persist only accepted alerts. No anomaly detector
-or dashboard exists.
+evaluations. Phase 4B fuses compatible behavioral results into final
+`StructuredAlert` values and persists only accepted alerts. The dashboard
+queries that repository read-only. No anomaly detector exists.
 
 ## Architecture Decisions Made
 
@@ -249,8 +273,52 @@ or dashboard exists.
 - Persist final alerts only in SQLite through a repository abstraction. Apply
   age/count retention at insertion, expose bounded queries, and catch/report
   storage write failures without stopping the monitoring loop.
+- Keep dashboard access read-only through repository count/group/recent query
+  methods. Auto-refresh never mutates detector state or retains an alert list.
+- Demonstrate all alert paths with controlled state-driven scenarios rather
+  than sending attack traffic. Keep demo-only threshold changes local to the
+  demo script.
+- Treat benchmark figures as local Python-stage measurements. Zeek capture,
+  WebSocket I/O, kernel delivery, and SQLite are explicitly excluded.
+
+- Keep raw public/local PCAPs and extracted rows gitignored. Commit strict
+  manifests, schema-bound tooling, selected artifacts, and honest metrics.
+- Replay PCAPs through the exact `flow_stream.zeek` producer events and the
+  production Python state/feature path. Do not train runtime models on external
+  precomputed CSV feature columns.
+- Split behavioral data by immutable capture/scenario/day `split_group`; reject
+  any group crossing train/validation/test roles.
+- Retain state for multicast/broadcast discovery, but exclude that address
+  semantics from unicast C2 beacon evidence. Treat strongly established
+  horizontal HTTPS fan-out as scan counterevidence.
+- Permit immutable per-family fusion overrides, while leaving a family's
+  prototype defaults unchanged until its validation PCAPs actually exist.
 
 ## Implemented Components
+
+### `src/calibration/`, `datasets/`, and `zeek/calibration_capture.zeek`
+
+Provide strict capture manifests, attack intervals/endpoints, split-leakage
+validation, exact offline production-event replay, periodic production feature
+sampling, schema-keyed JSONL caching, binary metrics, three lightweight
+behavioral candidate models, validation-only threshold/fusion tuning, and an
+untouched final test evaluation. The offline Zeek sink is disabled by default
+and does not alter the live WebSocket path.
+
+### `src/ml/dga_research.py` and `scripts/train_research_dga.py`
+
+Train the existing character 3–5 gram DGA approach on the public 674,898-row
+DGA_domains_dataset. DGA families are isolated by split; a validation subset
+calibrates scores, a separate validation subset selects threshold 0.891, and
+four unseen families form the untouched test. The committed artifact reports
+calibrated-score semantics and exact corpus SHA-256.
+
+### `CALIBRATION_REPORT.md`
+
+Records actual versus unavailable datasets, extraction/splitting methods,
+semantic changes, confusion counts, precision/recall/F1/FPR/PR-AUC/ROC-AUC,
+encrypted-dataset compatibility constraints, and measurements still requiring
+owner-local benign captures.
 
 ### `zeek/flow_stream.zeek`
 
@@ -412,6 +480,35 @@ maximum-row retention. The runtime default is `var/alerts/alerts.db`. The
 `alerts` table stores the canonical scalar columns plus JSON arrays for
 evidence, supporting-feature names, and detection sources; indexes cover
 timestamp, `(threat_family, timestamp)`, and `(severity, timestamp)`.
+It also supports explicit read-only SQLite access plus count, grouped-count,
+and latest-timestamp queries used by the dashboard.
+
+### `dashboard/app.py` and `src/dashboard_data.py`
+
+Implement an auto-refreshing read-only Streamlit view over the repository.
+The dashboard shows retained/recent totals, family/severity counts, an alert
+timeline, recent filterable alerts, and selectable evidence, feature, model,
+score, endpoint, and detection-source details.
+
+### `scripts/generate_demo_alerts.py`
+
+Runs deterministic safe scenarios through production state/features/rules/ML,
+fusion, suppression, and SQLite. It creates seven alerts covering DDoS, scan,
+exfiltration, beaconing, DNS behavior, per-query DGA, and encrypted rule-only
+paths without sending network traffic.
+
+### `scripts/benchmark_pipeline.py` and `benchmarks/`
+
+Measure strict JSON ingestion, bounded state fan-out, full coordinator work,
+rule evaluation, and Random Forest inference on deterministic local inputs.
+`benchmarks/latest.json` is machine-readable and `benchmarks/README.md`
+documents the measured stages, recorded result, environment, and exclusions.
+
+### `README.md`
+
+Documents the problem, architecture, supported families, ML/data limitations,
+unidirectional behavior, installation, three-terminal live workflow,
+controlled demo, dashboard, validation, recorded benchmark, and limitations.
 
 ### `scripts/train_models.py`
 
@@ -504,6 +601,12 @@ encrypted rule-only alerts, separate DNS/DGA alerts, confidence/severity,
 explicit-null JSON, cooldown bypass/suppression/capacity, SQLite reads and
 retention, graceful write failure, and coordinator DGA alert integration.
 
+### `tests/test_final_checkpoint.py`
+
+Covers the seven-alert controlled demo, read-only repository aggregation,
+dashboard snapshot loading/missing-database behavior, and all reported
+benchmark stages.
+
 ### `scripts/run_zeek_live.sh`
 
 Starts foreground Zeek on a validated interface with the flow-stream policy
@@ -573,14 +676,46 @@ authoritative Phase 2 design.
 - `src/alerts/storage.py`
 - `src/alerts/service.py`
 - `tests/test_phase4b_alerts.py`
+- `dashboard/__init__.py`
+- `dashboard/app.py`
+- `src/dashboard_data.py`
+- `scripts/generate_demo_alerts.py`
+- `scripts/benchmark_pipeline.py`
+- `benchmarks/README.md`
+- `benchmarks/latest.json`
+- `tests/test_final_checkpoint.py`
+- `src/calibration/__init__.py`
+- `src/calibration/manifest.py`
+- `src/calibration/pcap.py`
+- `src/calibration/replay.py`
+- `src/calibration/metrics.py`
+- `src/calibration/training.py`
+- `zeek/calibration_capture.zeek`
+- `scripts/extract_external_dataset.py`
+- `scripts/calibrate_behavioral_models.py`
+- `src/ml/dga_research.py`
+- `scripts/train_research_dga.py`
+- `datasets/README.md` and `datasets/manifests/*.json`
+- `models/phase4a/dga.realdata.metrics.json`
+- `tests/test_calibration_hardening.py`
+- `CALIBRATION_REPORT.md`
+- `README.md`
 - `PHASE2_STATE_DESIGN.md`
 
 ## Files Modified in the Latest Checkpoint
 
-- `requirements.txt`
-- `src/coordinator.py`
-- `src/main.py`
-- Phase 4B alert files listed above (added)
+- `.gitignore`
+- `zeek/flow_stream.zeek`
+- `src/features/models.py`
+- `src/features/extractors.py`
+- `src/detectors/rules.py`
+- `src/ml/models.py`
+- `src/ml/inference.py`
+- `src/alerts/fusion.py`
+- `models/phase4a/dga.joblib`
+- `models/phase4a/dga.manifest.json`
+- `models/phase4a/README.md`
+- `README.md`
 - `HANDOFF.md`
 
 ## How To Run
@@ -606,6 +741,12 @@ Start Zeek in a second terminal. Packet capture normally requires root:
 sudo ./scripts/run_zeek_live.sh wlo1
 ```
 
+Start the read-only dashboard in a third terminal:
+
+```bash
+.venv/bin/streamlit run dashboard/app.py
+```
+
 The Python process prints a periodic JSON object containing
 `active_flow_count` and the compact directional `active_flows` list. The Zeek
 runner prints the unique directory containing its standard logs.
@@ -618,11 +759,21 @@ observations:
 python -m src.ingestion.zeek_websocket
 ```
 
-Regenerate the Phase 4A prototype datasets, artifacts, manifests, and metrics
-offline with the fixed default seed:
+Regenerate the Phase 4A behavioral prototype artifacts, then the public-corpus
+DGA artifact, with the fixed default seed:
 
 ```bash
 .venv/bin/python scripts/train_models.py
+.venv/bin/python scripts/train_research_dga.py \
+  --corpus data/external/cache/dga_domains_full.csv
+```
+
+Extract manifest PCAPs and compare/calibrate one behavioral family with:
+
+```bash
+.venv/bin/python scripts/extract_external_dataset.py DATASET_MANIFEST.json
+.venv/bin/python scripts/calibrate_behavioral_models.py scan \
+  data/external/cache/features/*.jsonl --output models/calibrated
 ```
 
 Runtime coordinator results now contain independent `detector_results` and
@@ -638,12 +789,20 @@ ALERT_DB_PATH=/path/to/alerts.db python -m src.main
 python -m src.main --alert-db /path/to/alerts.db
 ```
 
+Generate seven safe controlled demo alerts and run the benchmark with:
+
+```bash
+.venv/bin/python scripts/generate_demo_alerts.py
+.venv/bin/python scripts/benchmark_pipeline.py --events 10000 --evaluations 1000
+```
+
 ## How To Test
 
 With `requirements.txt` installed:
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m compileall -q src dashboard scripts tests
 python -m py_compile \
   src/ingestion/zeek_websocket.py \
   src/flow/models.py \
@@ -682,22 +841,36 @@ python -m py_compile \
   src/alerts/suppression.py \
   src/alerts/storage.py \
   src/alerts/service.py \
-  tests/test_phase4b_alerts.py
+  tests/test_phase4b_alerts.py \
+  src/dashboard_data.py \
+  dashboard/app.py \
+  scripts/generate_demo_alerts.py \
+  scripts/benchmark_pipeline.py \
+  tests/test_final_checkpoint.py
 .venv/bin/pip check
-bash -n scripts/run_zeek_live.sh
-zeek -a zeek/flow_stream.zeek
+zsh -n scripts/run_zeek_live.sh
+zeek -a zeek/flow_stream.zeek zeek/calibration_capture.zeek
 ```
 
 Verified on 2026-09-30:
 
-- All 120 tests passed under Python 3.14.7 with `websockets==17.1`,
-  `tldextract==5.3.2`, `scikit-learn==1.9.1`, and `joblib==1.6.0`.
+- All 135 tests passed under Python 3.14.7 with `websockets==16.1.1`,
+  `tldextract==5.3.2`, `scikit-learn==1.9.1`, `joblib==1.6.0`, and
+  `streamlit==1.64.0`.
 - The dedicated actual Zeek 8.0.6 → test PCAP → loopback WebSocket → strict
   multi-event dispatcher → coordinator → FlowManager/DDoS/Scan/Exfil/Beacon
   integration test passed using Zeek's packaged `conn-size.trace` PCAP.
 - Dedicated real DNS and TLS PCAP → Zeek 8.0.6 → loopback WebSocket → strict
   dispatcher → coordinator integration tests passed. DNS query/result and
   encrypted identification/final reconciliation reached their managers.
+- The offline calibration sink replayed Zeek's packaged `conn-size.trace`
+  through exact production events and produced 49 cached-compatible feature
+  rows across DDoS, scan, exfiltration, and beacon state. This fixture validates
+  mechanics only and was not claimed as field-labelled model data.
+- DGA research-corpus training processed 674,898 rows in 58.7 seconds of model
+  work (60.1 seconds wall time). The selected 0.891 threshold produced held-out
+  TP/FP/TN/FN 4755/129/9871/5245, precision 0.9736, recall 0.4755, F1 0.6389,
+  FPR 0.0129, PR-AUC 0.9392, and ROC-AUC 0.9409 on unseen DGA families.
 - Offline packaged-PSL behavior was verified for `example.co.uk` and the
   private suffix `github.io`; no network PSL fetch/cache path is configured.
 - Python compilation for every source and test module passed.
@@ -720,6 +893,17 @@ Verified on 2026-09-30:
   rule-only/ML-only paths, DNS/DGA separation, encrypted rule-only alerting,
   JSON serialization, bounded cooldown behavior, SQLite insertion/query/
   filtering/retention, graceful write failure, and coordinator integration.
+- The controlled demo persisted seven alerts spanning every supported final
+  alert path. Read-only SQLite totals/grouping and dashboard view-model loading
+  were verified by automated tests.
+- Streamlit imported successfully and its headless loopback server returned
+  `ok` from `/_stcore/health` while reading `/tmp/sih-dashboard-alerts.db`; it
+  was then stopped cleanly.
+- The final deterministic benchmark processed 10,000 events and 1,000
+  evaluations. Recorded throughputs were 13,791.0 strict JSON events/s,
+  39,911.1 state updates/s, 16,807.8 full coordinator events/s, 10,515.4 rule
+  evaluations/s, and 235.5 Random Forest inferences/s. Zeek capture, network
+  I/O, SQLite, and kernel delivery were excluded.
 - Phase 1 is accepted and working on the live `wlo1` interface.
 - Phase 2 blocks A, B, and C are automated-test/PCAP verified; a separate manual
   live-interface run for the state-manager path has not been claimed.
@@ -814,6 +998,24 @@ Verified on 2026-09-30:
   the alert remains emitted, but failed writes are not durably retried.
 - Alert suppression state is process-local and bounded. Restarting Python
   clears cooldown history but not persisted SQLite alerts.
+- Public behavioral PCAPs and owner-confirmed benign hard negatives were not
+  present. The four behavioral models/fusion settings therefore remain
+  synthetic prototype defaults; no held-out behavioral precision/recall or
+  local alerts/hour is claimed yet.
+- DGA held-out-family recall is 0.4755 at the precision-oriented 0.891
+  threshold. This is an intentional validation tradeoff, not production
+  completeness, and must be re-evaluated against live DNS distributions.
+- Standard IP semantics identify multicast, limited broadcast, and unspecified
+  destinations, but directed IPv4 subnet broadcast requires interface-prefix
+  context that the current feature does not have.
+- The current workstation's existing `var/` directory is owned by another
+  user, so this account cannot create the default `var/alerts/alerts.db`.
+  `/tmp/sih-dashboard-alerts.db` was used for the verified demo/dashboard
+  smoke test. On this workstation only, fix the local directory ownership or
+  set the same writable `ALERT_DB_PATH` for backend and dashboard.
+- The final checkpoint did not repeat privileged live capture on `wlo1`.
+  Earlier live Zeek/WebSocket operation remains manually verified; the final
+  downstream path is controlled-demo and real-PCAP integration verified.
 
 ## Current Configuration
 
@@ -855,21 +1057,29 @@ Verified on 2026-09-30:
 - Detector evaluation interval: `10` seconds by default, configurable through
   `StreamingCoordinator` or `PeriodicDetectorEvaluator` construction.
 - Phase 4A model directory: `models/phase4a`; training seed: `2404`; flow
-  training: 48 examples/class/family; DGA training: 240 examples/class.
+  training remains 48 synthetic examples/class/family. Public DGA training
+  uses 60,000 train, 9,983 calibration, 10,017 validation-tuning, and 20,000
+  held-out-test domains selected from a 674,898-row corpus.
 - Flow ML: four 120-tree, depth-8, class-balanced `RandomForestClassifier`
   models with explicit availability-bit preprocessing. DGA ML: character
-  3–5 gram TF-IDF (maximum 8000 features) plus class-balanced
-  `LogisticRegression`.
+  3–5 gram TF-IDF (maximum 50,000 features) plus class-balanced
+  `LogisticRegression` and held-out sigmoid score calibration.
 - Fusion defaults: rule/ML weights `0.5/0.5`, agreement bonus `0.05`,
   disagreement multiplier `0.75`, fused/rule-only thresholds `0.65`,
-  discounted ML-only threshold `0.70`, ML-only discount `0.85`, and DGA
-  threshold `0.80`.
+  discounted ML-only threshold `0.70`, ML-only discount `0.85`, and validation-
+  selected DGA threshold `0.891`. Immutable family-specific overrides are
+  supported but none are installed without that family's validation PCAPs.
 - Severity defaults: medium at `0.65`, high at `0.80`, critical at `0.95`
   with at least four evidence items; otherwise severity is low.
 - Alert suppression defaults: five-minute cooldown, `0.15` material
   confidence increase, and `50000` bounded keys.
 - SQLite alert defaults: `var/alerts/alerts.db`, at most `100000` final alerts,
   and 30-day event-time retention.
+- Dashboard default: `var/alerts/alerts.db`, read-only access, five-second
+  auto-refresh, configurable recent window/filter/row limit, and no detector-
+  state mutation.
+- Dashboard dependency: `streamlit==1.64.0`; its compatible WebSocket
+  dependency is pinned to `websockets==16.1.1`.
 - All six detector families use immutable configurable prototype defaults in
   their respective `*DetectorConfig` classes.
 - Default Zeek output root: `var/zeek/`.
@@ -901,17 +1111,21 @@ FLOW_STREAM_INTERVAL  # Zeek runner only
 
 ## Next Intended Step
 
-Stop after Phase 4B. The next intended checkpoint requires explicit owner
-direction. Do not begin the Streamlit dashboard, anomaly detection, additional
-ML, benchmarking, or presentation/documentation cleanup automatically.
+Collect/import the explicitly named public behavioral PCAP subsets and
+owner-confirmed benign hard-negative captures, then run the committed extraction
+and grouped calibration commands. Do not select algorithms, thresholds, or
+fusion settings until all three capture-group roles exist. Measure alerts/hour
+on untouched local benign captures last. No architecture redesign is needed.
 
 ## Last Change
 
-Completed Phase 4B: added configurable transparent behavioral rule/ML fusion,
-separate DNS behavior/DGA and encrypted rule-only handling, canonical JSON
-alerts, bounded cooldown suppression, SQLite final-alert storage/retention,
-graceful persistence failure telemetry, and live coordinator/runtime wiring.
-Verified all 120 tests, compilation, dependency health, CLI help, Zeek policy
-analysis, shell syntax, and all existing real flow/DNS/TLS PCAP → WebSocket →
-coordinator integrations. No dashboard, anomaly detection, or additional ML
-was implemented.
+Added the non-CICFlowMeter external-PCAP manifest/replay/cache harness,
+capture-group leakage protection, behavioral candidate/fusion calibration
+tooling, beacon/scan false-positive semantic guards, per-family fusion config,
+and focused regressions. Retrained the DGA TF-IDF/logistic model on a 674,898-
+row public research corpus with calibration, validation threshold selection,
+and unseen-family test. Verified 135 tests, Python compilation, dependency
+health, five model loads, both Zeek policies, shell syntax, existing flow/DNS/
+TLS WebSocket integrations, and the new exact-event offline feature replay.
+Behavioral public/local PCAP metrics remain explicitly unclaimed because those
+raw captures were not present.

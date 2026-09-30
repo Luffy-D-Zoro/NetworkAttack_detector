@@ -107,6 +107,20 @@ class Phase4AInferenceTests(unittest.TestCase):
         self.assertEqual(suspicious.predicted_class, "dga_like")  # type: ignore[union-attr]
         self.assertTrue(0.0 <= suspicious.confidence <= 1.0)  # type: ignore[union-attr]
 
+    def test_dga_semantic_eligibility_precedes_inference(self) -> None:
+        for query in (
+            "sumitr", "printer", "randomsinglelabelxyz", "host.local",
+            "1.0.0.127.in-addr.arpa", "b.a.9.8.7.6.5.0.4.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa",
+            "127.0.0.1", "2001:db8::1", "localhost",
+        ):
+            with self.subTest(query=query):
+                self.assertIsNone(self.engine.infer_dga(self._dns(query)))
+
+        normal = self.engine.infer_dga(self._dns("www.google.com"))
+        dga = self.engine.infer_dga(self._dns("qzx91kplm7vct2rnb4wx8j.info"))
+        self.assertIsNotNone(normal)
+        self.assertEqual(dga.predicted_class, "dga_like")  # type: ignore[union-attr]
+
     def test_periodic_evaluator_runs_ml_only_on_cadence(self) -> None:
         config = DDoSStateConfig(window=timedelta(seconds=60), bucket_width=timedelta(seconds=5))
         ddos = DDoSStateManager(config)

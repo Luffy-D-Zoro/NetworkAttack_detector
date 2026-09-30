@@ -1,0 +1,94 @@
+{
+  "algorithm": "character 3-5 gram TF-IDF + class-weighted LogisticRegression + sigmoid calibration",
+  "dataset": {
+    "family_roles": {
+      "conficker": "validation",
+      "corebot": "train",
+      "cryptolocker": "test",
+      "dircrypt": "train",
+      "emotet": "validation",
+      "fobber": "test",
+      "gozi": "train",
+      "kraken": "train",
+      "matsnu": "train",
+      "murofet": "train",
+      "necurs": "validation",
+      "nymaim": "train",
+      "padcrypt": "train",
+      "pushdo": "train",
+      "pykspa": "test",
+      "qadars": "train",
+      "ramdo": "train",
+      "ramnit": "train",
+      "ranbyus": "test",
+      "rovnix": "validation",
+      "simda": "train",
+      "suppobox": "train",
+      "symmi": "train",
+      "tinba": "train",
+      "vawtrak": "train"
+    },
+    "name": "DGA_domains_dataset",
+    "notice": "Public research corpus; held-out metrics are lab generalization results, not live-network accuracy.",
+    "rows": 674898,
+    "sha256": "e8bbe54f180cd127a07abaa3dbddcd843e7b7943dff2f18628619b1bd22e8253",
+    "source": "https://github.com/chrmor/DGA_domains_dataset"
+  },
+  "generated_at": "2026-09-30T14:09:02.048911+00:00",
+  "model_name": "dns_dga_char_ngram",
+  "model_version": "realdata-dga-v2",
+  "recommended_alert_threshold": 0.891,
+  "sample_counts": {
+    "calibration": 9983,
+    "test": 20000,
+    "train": 60000,
+    "validation_tuning": 10017
+  },
+  "test_metrics": {
+    "confusion_matrix": [
+      [
+        9871,
+        129
+      ],
+      [
+        5245,
+        4755
+      ]
+    ],
+    "f1": 0.6389411448535339,
+    "false_positive_rate": 0.0129,
+    "fn": 5245,
+    "fp": 129,
+    "pr_auc": 0.9391958854829225,
+    "precision": 0.9735872235872236,
+    "recall": 0.4755,
+    "roc_auc": 0.9409181899999999,
+    "samples": 20000,
+    "tn": 9871,
+    "tp": 4755
+  },
+  "training_seconds": 58.71926612198877,
+  "validation_metrics": {
+    "confusion_matrix": [
+      [
+        4905,
+        49
+      ],
+      [
+        2487,
+        2576
+      ]
+    ],
+    "f1": 0.6701352757544226,
+    "false_positive_rate": 0.009890997174000807,
+    "fn": 2487,
+    "fp": 49,
+    "pr_auc": 0.9279410798699081,
+    "precision": 0.9813333333333333,
+    "recall": 0.5087892553821844,
+    "roc_auc": 0.911217648345422,
+    "samples": 10017,
+    "tn": 4905,
+    "tp": 2576
+  }
+}

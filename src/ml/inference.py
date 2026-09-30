@@ -10,10 +10,10 @@ from typing import Any
 import joblib
 
 from src.features.models import FeatureObject
+from src.dns_names import dga_eligible_name
 from src.ingestion.zeek_websocket import DNSQueryObservation
 from src.ml.models import MLResult
 from src.ml.schema import FAMILY_FEATURES, schema_manifest, vectorize
-from src.ml.training_data import normalize_domain
 
 
 class MLInferenceEngine:
@@ -42,23 +42,28 @@ class MLInferenceEngine:
             bundle["model_name"], bundle["model_version"], family,
             feature.subject, feature.timestamp, str(model.classes_[best]),
             float(probabilities[best]), raw,
+            bool(bundle.get("score_calibrated", False)),
         )
 
     def infer_dga(self, observation: DNSQueryObservation) -> MLResult | None:
         bundle = self._models.get("dga")
         if bundle is None:
             return None
-        normalized = normalize_domain(observation.query)
-        if not normalized:
+        eligible = dga_eligible_name(observation.query)
+        if eligible is None:
             return None
+        normalized = eligible.normalized_query
         model = bundle["model"]
         probabilities = model.predict_proba([normalized])[0]
         best = max(range(len(probabilities)), key=probabilities.__getitem__)
+        predicted = str(model.classes_[best])
+        predicted = {"0": "benign_like", "1": "dga_like"}.get(predicted, predicted)
         return MLResult(
             bundle["model_name"], bundle["model_version"], "dga",
             f"{observation.source_ip}:{normalized}", observation.event_time,
-            str(model.classes_[best]), float(probabilities[best]),
+            predicted, float(probabilities[best]),
             {"normalized_dns_query": normalized},
+            bool(bundle.get("score_calibrated", False)),
         )
 
     def _load(self, family: str) -> None:
@@ -73,7 +78,9 @@ class MLInferenceEngine:
                 expected_hash = hashlib.sha256(
                     json.dumps({k: v for k, v in manifest.items() if k != "schema_sha256"}, sort_keys=True, separators=(",", ":")).encode()
                 ).hexdigest()
-                vocabulary = bundle["model"].named_steps["tfidf"].get_feature_names_out().tolist()
+                vocabulary = bundle.get("feature_names")
+                if vocabulary is None:
+                    vocabulary = bundle["model"].named_steps["tfidf"].get_feature_names_out().tolist()
                 if vocabulary != manifest.get("feature_names"):
                     raise ValueError("DGA TF-IDF vocabulary differs from manifest")
             else:

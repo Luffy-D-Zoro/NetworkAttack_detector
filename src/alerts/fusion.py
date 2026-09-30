@@ -56,7 +56,7 @@ class SeverityConfig:
 
 
 @dataclass(frozen=True, slots=True)
-class FusionConfig:
+class FamilyFusionConfig:
     rule_weight: float = 0.5
     ml_weight: float = 0.5
     agreement_bonus: float = 0.05
@@ -67,20 +67,48 @@ class FusionConfig:
     ml_only_discount: float = 0.85
     allow_ml_only_when_rule_insufficient: bool = True
     allow_ml_only_without_rule: bool = True
-    dga_alert_threshold: float = 0.80
-    severity: SeverityConfig = SeverityConfig()
 
     def __post_init__(self) -> None:
         values = (
             self.rule_weight, self.ml_weight, self.agreement_bonus,
             self.disagreement_multiplier, self.fused_alert_threshold,
             self.rule_only_threshold, self.ml_only_threshold,
-            self.ml_only_discount, self.dga_alert_threshold,
+            self.ml_only_discount,
         )
         if any(not 0.0 <= value <= 1.0 for value in values):
             raise ValueError("fusion scores, weights, and thresholds must be within zero and one")
         if self.rule_weight + self.ml_weight <= 0:
             raise ValueError("at least one fusion weight must be positive")
+
+
+@dataclass(frozen=True, slots=True)
+class FusionConfig(FamilyFusionConfig):
+    # Selected on the DGA research-corpus validation tuning split; the final
+    # held-out test split was not used to choose it.
+    dga_alert_threshold: float = 0.891
+    severity: SeverityConfig = SeverityConfig()
+    family_overrides: tuple[tuple[str, FamilyFusionConfig], ...] = ()
+
+    def __post_init__(self) -> None:
+        FamilyFusionConfig.__post_init__(self)
+        if not 0.0 <= self.dga_alert_threshold <= 1.0:
+            raise ValueError("DGA alert threshold must be within zero and one")
+        families = [family for family, _ in self.family_overrides]
+        if len(families) != len(set(families)):
+            raise ValueError("family fusion overrides must be unique")
+
+    def for_family(self, family: str) -> FamilyFusionConfig:
+        return dict(self.family_overrides).get(family, FamilyFusionConfig(
+            rule_weight=self.rule_weight, ml_weight=self.ml_weight,
+            agreement_bonus=self.agreement_bonus,
+            disagreement_multiplier=self.disagreement_multiplier,
+            fused_alert_threshold=self.fused_alert_threshold,
+            rule_only_threshold=self.rule_only_threshold,
+            ml_only_threshold=self.ml_only_threshold,
+            ml_only_discount=self.ml_only_discount,
+            allow_ml_only_when_rule_insufficient=self.allow_ml_only_when_rule_insufficient,
+            allow_ml_only_without_rule=self.allow_ml_only_without_rule,
+        ))
 
 
 class AlertFusionEngine:
@@ -131,41 +159,44 @@ class AlertFusionEngine:
         return tuple(alerts)
 
     def _behavioral(self, rule: DetectorResult, model: MLResult | None, family: str) -> StructuredAlert | None:
+        config = self.config.for_family(family)
         if model is None:
             return self._rule_only(rule, family)
         if rule.disposition == "insufficient_data":
-            if not self.config.allow_ml_only_when_rule_insufficient:
+            if not config.allow_ml_only_when_rule_insufficient:
                 return None
             return self._ml_only(model, family, rule=rule)
 
         ml_support = _suspicious_support(model)
         rule_suspicious = rule.disposition == "suspicious"
         ml_suspicious = model.predicted_class != "benign_like"
-        weight_sum = self.config.rule_weight + self.config.ml_weight
+        weight_sum = config.rule_weight + config.ml_weight
         confidence = (
-            self.config.rule_weight * rule.score + self.config.ml_weight * ml_support
+            config.rule_weight * rule.score + config.ml_weight * ml_support
         ) / weight_sum
         if rule_suspicious and ml_suspicious:
-            confidence += self.config.agreement_bonus
+            confidence += config.agreement_bonus
         elif rule_suspicious != ml_suspicious:
-            confidence *= self.config.disagreement_multiplier
+            confidence *= config.disagreement_multiplier
         confidence = _bounded(confidence)
-        if not (rule_suspicious or ml_suspicious) or confidence < self.config.fused_alert_threshold:
+        if not (rule_suspicious or ml_suspicious) or confidence < config.fused_alert_threshold:
             return None
         return self._alert(family, rule.subject, rule.timestamp, confidence, rule, model)
 
     def _rule_only(self, rule: DetectorResult, family: str) -> StructuredAlert | None:
-        if rule.disposition != "suspicious" or rule.score < self.config.rule_only_threshold:
+        config = self.config.for_family(family)
+        if rule.disposition != "suspicious" or rule.score < config.rule_only_threshold:
             return None
         return self._alert(family, rule.subject, rule.timestamp, rule.score, rule, None)
 
     def _ml_only(self, model: MLResult, family: str, *, rule: DetectorResult | None) -> StructuredAlert | None:
-        if rule is None and not self.config.allow_ml_only_without_rule:
+        config = self.config.for_family(family)
+        if rule is None and not config.allow_ml_only_without_rule:
             return None
         if model.predicted_class == "benign_like":
             return None
-        confidence = _bounded(model.confidence * self.config.ml_only_discount)
-        if confidence < self.config.ml_only_threshold:
+        confidence = _bounded(model.confidence * config.ml_only_discount)
+        if confidence < config.ml_only_threshold:
             return None
         return self._alert(family, model.subject, model.timestamp, confidence, rule, model)
 
@@ -184,9 +215,14 @@ class AlertFusionEngine:
         )
         evidence = list(rule.evidence if rule is not None else ())
         if model is not None:
+            score_description = (
+                "calibrated research-corpus score"
+                if model.score_calibrated
+                else "uncalibrated prototype confidence"
+            )
             evidence.append(
                 f"ML {model.model_name} predicted {model.predicted_class} at "
-                f"{model.confidence:.3f} uncalibrated prototype confidence"
+                f"{model.confidence:.3f} {score_description}"
             )
         sources = tuple(source for source, present in (("rule", rule is not None), ("ml", model is not None)) if present)
         features = set(rule.available_features if rule is not None else ())

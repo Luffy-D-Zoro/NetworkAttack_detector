@@ -10,6 +10,8 @@ export {
 	const listen_addr = 127.0.0.1 &redef;
 	const listen_port = 9997/tcp &redef;
 	const snapshot_interval = 1sec &redef;
+	const emit_local_events = F &redef;
+	const enable_websocket = T &redef;
 	const schema_version: count = 1;
 
 	global flow_snapshot: event(
@@ -104,6 +106,15 @@ function publish_encrypted(
 	has_last_alert: bool, last_alert_value: string,
 	has_server_cert_fingerprint: bool, server_cert_fingerprint_value: string)
 	{
+	if ( emit_local_events )
+		event encrypted_protocol_observation(
+		schema_version, kind, event_time, uid, family,
+		client_h, port_to_count(client_p), server_h, port_to_count(server_p), proto,
+		has_version, version_value, has_cipher, cipher_value,
+		has_curve, curve_value, has_server_name, server_name_value,
+		has_alpn, alpn_value, has_resumed, resumed_value,
+		has_established, established_value, has_last_alert, last_alert_value,
+		has_server_cert_fingerprint, server_cert_fingerprint_value, F, "");
 	if ( ! Cluster::publish(topic, encrypted_protocol_observation,
 	                       schema_version, kind, event_time, uid, family,
 	                       client_h, port_to_count(client_p),
@@ -120,13 +131,23 @@ function publish_encrypted(
 
 function publish_connection(c: connection, kind: string)
 	{
+	local observed_at = network_time();
 	local orig_pkts = c$orig?$num_pkts ? c$orig$num_pkts : 0;
 	local orig_ip_bytes = c$orig?$num_bytes_ip ? c$orig$num_bytes_ip : 0;
 	local resp_pkts = c$resp?$num_pkts ? c$resp$num_pkts : 0;
 	local resp_ip_bytes = c$resp?$num_bytes_ip ? c$resp$num_bytes_ip : 0;
+	if ( emit_local_events )
+		event flow_snapshot(
+		schema_version, kind, observed_at, c$uid,
+		c$id$orig_h, port_to_count(c$id$orig_p),
+		c$id$resp_h, port_to_count(c$id$resp_p), c$id$proto,
+		c$start_time, c$start_time + c$duration,
+		orig_pkts, orig_ip_bytes, c$orig$size,
+		resp_pkts, resp_ip_bytes, c$resp$size,
+		c$orig$state, c$resp$state, c$history);
 
 	if ( ! Cluster::publish(topic, flow_snapshot,
-	                       schema_version, kind, network_time(), c$uid,
+	                       schema_version, kind, observed_at, c$uid,
 	                       c$id$orig_h, port_to_count(c$id$orig_p),
 	                       c$id$resp_h, port_to_count(c$id$resp_p), c$id$proto,
 	                       c$start_time, c$start_time + c$duration,
@@ -140,9 +161,15 @@ function publish_tcp_signal(c: connection, kind: string, actor_role: string)
 	{
 	if ( c$id$proto != 6 )
 		return;
+	local event_time = network_time();
+	if ( emit_local_events )
+		event tcp_connection_signal(
+		schema_version, event_time, c$uid, kind,
+		c$id$orig_h, port_to_count(c$id$orig_p),
+		c$id$resp_h, port_to_count(c$id$resp_p), c$id$proto, actor_role);
 
 	if ( ! Cluster::publish(topic, tcp_connection_signal,
-	                       schema_version, network_time(), c$uid, kind,
+	                       schema_version, event_time, c$uid, kind,
 	                       c$id$orig_h, port_to_count(c$id$orig_p),
 	                       c$id$resp_h, port_to_count(c$id$resp_p),
 	                       c$id$proto, actor_role) )
@@ -151,6 +178,8 @@ function publish_tcp_signal(c: connection, kind: string, actor_role: string)
 
 event zeek_init()
 	{
+	if ( ! enable_websocket )
+		return;
 	if ( ! Cluster::listen_websocket([
 		$listen_addr=listen_addr,
 		$listen_port=listen_port,
@@ -198,8 +227,15 @@ event connection_reset(c: connection)
 
 event dns_request(c: connection, msg: dns_msg, query: string, qtype: count, qclass: count) &priority=-5
 	{
+	local event_time = network_time();
+	if ( emit_local_events )
+		event dns_query_observation(
+		schema_version, event_time, c$uid,
+		c$id$orig_h, port_to_count(c$id$orig_p),
+		c$id$resp_h, port_to_count(c$id$resp_p), c$id$proto,
+		msg$id, query, qtype, qclass);
 	if ( ! Cluster::publish(topic, dns_query_observation,
-	                       schema_version, network_time(), c$uid,
+	                       schema_version, event_time, c$uid,
 	                       c$id$orig_h, port_to_count(c$id$orig_p),
 	                       c$id$resp_h, port_to_count(c$id$resp_p), c$id$proto,
 	                       msg$id, query, qtype, qclass) )
@@ -217,13 +253,21 @@ event DNS::log_dns(rec: DNS::Info)
 	local rcode_value: count = 0;
 	local rtt_value: double = 0.0;
 	local answer_count_value: count = 0;
+	local result_time = network_time();
 	local ip_protocol: count = rec$proto == tcp ? 6 : 17;
 	if ( rec?$query ) query_value = rec$query;
 	if ( rec?$rcode ) rcode_value = rec$rcode;
 	if ( rec?$rtt ) rtt_value = interval_to_double(rec$rtt);
 	if ( rec?$total_answers ) answer_count_value = rec$total_answers;
+	if ( emit_local_events )
+		event dns_result_observation(
+		schema_version, rec$ts, result_time, rec$uid,
+		rec$id$orig_h, rec$id$resp_h, ip_protocol, trans_id,
+		rec?$query && query_value != "", query_value,
+		rec$saw_reply, rec$rejected, rec?$rcode, rcode_value,
+		rec?$rtt, rtt_value, rec?$total_answers, answer_count_value);
 	if ( ! Cluster::publish(topic, dns_result_observation,
-	                       schema_version, rec$ts, network_time(), rec$uid,
+	                       schema_version, rec$ts, result_time, rec$uid,
 	                       rec$id$orig_h, rec$id$resp_h, ip_protocol, trans_id,
 	                       rec?$query && query_value != "", query_value,
 	                       rec$saw_reply, rec$rejected, rec?$rcode, rcode_value,

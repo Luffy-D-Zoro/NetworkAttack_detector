@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import ipaddress
 import statistics
 from collections import Counter
 from datetime import datetime, timedelta
@@ -288,6 +289,7 @@ class BeaconFeatureExtractor:
         self.config = config
 
     def extract(self, key: BeaconKey, state: BeaconState, timestamp: datetime) -> BeaconFeatures:
+        destination = ipaddress.ip_address(key[1])
         starts = tuple(state.connection_starts)
         episodes = tuple(state.episodes)
         completed = tuple(state.completed_connections)
@@ -303,6 +305,12 @@ class BeaconFeatureExtractor:
         return BeaconFeatures(
             subject=f"{key[0]}->{key[1]}:{key[2]}/{key[3]}",
             timestamp=timestamp,
+            destination_is_multicast=destination.is_multicast,
+            destination_is_limited_broadcast=(
+                isinstance(destination, ipaddress.IPv4Address)
+                and destination == ipaddress.IPv4Address("255.255.255.255")
+            ),
+            destination_is_unspecified=destination.is_unspecified,
             contact_count=len(starts),
             contact_frequency_per_second=contact_frequency,
             connection_interarrival_mean_seconds=contact_mean,

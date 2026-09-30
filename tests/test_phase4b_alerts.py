@@ -174,6 +174,28 @@ class PersistenceTests(unittest.TestCase):
 
 
 class RuntimeIntegrationTests(unittest.TestCase):
+    def test_coordinator_keeps_local_dns_in_state_but_skips_dga_ml(self) -> None:
+        engine = MLInferenceEngine(MODELS)
+        coordinator = StreamingCoordinator(
+            flow_manager=FlowManager(
+                inactivity_timeout=timedelta(seconds=120), cleanup_interval=timedelta(seconds=5)
+            ),
+            correlation_timeout=timedelta(seconds=300), ml_engine=engine,
+            alert_service=AlertService(
+                fusion=AlertFusionEngine(FusionConfig(dga_alert_threshold=0.0)),
+            ),
+        )
+        observation = DNSQueryObservation(
+            1, BASE, "LOCAL1", ipaddress.ip_address("192.0.2.9"), 53000,
+            ipaddress.ip_address("198.51.100.53"), 53, 17, 1,
+            "randomsinglelabelxyz", 1, 1,
+        )
+        result = coordinator.process(observation)
+        self.assertTrue(result.dns_observation_accepted)
+        self.assertEqual(result.ml_results, ())
+        self.assertEqual(result.alerts, ())
+        self.assertIsNotNone(coordinator.dns_manager.get(observation.source_ip))
+
     def test_coordinator_emits_dga_alert_without_fusing_dns_subject(self) -> None:
         engine = MLInferenceEngine(MODELS)
         service = AlertService(

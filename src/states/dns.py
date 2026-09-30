@@ -8,8 +8,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-import tldextract
-
+from src.dns_names import registrable_domain_parts
 from src.ingestion.zeek_websocket import DNSQueryObservation, DNSResultObservation
 from src.states.common import (
     BoundedCounterMap,
@@ -21,14 +20,6 @@ from src.states.common import (
 )
 
 IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
-
-_PSL = tldextract.TLDExtract(
-    suffix_list_urls=(),
-    cache_dir=None,
-    fallback_to_snapshot=True,
-    include_psl_private_domains=True,
-)
-
 
 @dataclass(slots=True)
 class DNSSourceBucket:
@@ -307,11 +298,7 @@ class DNSStateManager:
 
     @staticmethod
     def _domain_parts(normalized: str) -> tuple[str, str]:
-        extracted = _PSL(normalized)
-        registrable = extracted.top_domain_under_public_suffix
-        if not registrable:
-            registrable = extracted.domain or normalized
-        return registrable.lower(), extracted.subdomain.lower()
+        return registrable_domain_parts(normalized)
 
     @staticmethod
     def _entropy(value: str) -> float:
